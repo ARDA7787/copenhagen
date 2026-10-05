@@ -149,27 +149,26 @@ def test_enums_become_their_values() -> None:
 @pytest.mark.parametrize(
     "value",
     [
-        1.0,
-        0.1,
-        -0.0,
-        float("nan"),
-        float("inf"),
-        Decimal("49.99"),
-        b"bytes",
-        {1, 2},
-        datetime(2026, 10, 5, 12, 0),  # naive
-        date(2026, 10, 5),
-        {1: "non-string key"},
-        {("a",): "tuple key"},
-        MAX_SAFE_INT + 1,
-        -MAX_SAFE_INT - 1,
-        "\ud800",  # lone surrogate: not valid Unicode
-        {"\ud800": "lone surrogate key"},
-        object(),
-        [1, [2, {"amount": 49.99}]],
-        {"a": {"b": (1, 2.5)}},
+        pytest.param(1.0, id="whole-float"),
+        pytest.param(0.1, id="float"),
+        pytest.param(-0.0, id="negative-zero"),
+        pytest.param(float("nan"), id="nan"),
+        pytest.param(float("inf"), id="inf"),
+        pytest.param(Decimal("49.99"), id="decimal"),
+        pytest.param(b"bytes", id="bytes"),
+        pytest.param({1, 2}, id="set"),
+        pytest.param(datetime(2026, 10, 5, 12, 0), id="naive"),
+        pytest.param(date(2026, 10, 5), id="date"),
+        pytest.param({1: "non-string key"}, id="int-key"),
+        pytest.param({("a",): "tuple key"}, id="tuple-key"),
+        pytest.param(MAX_SAFE_INT + 1, id="int-too-big"),
+        pytest.param(-MAX_SAFE_INT - 1, id="int-too-small"),
+        pytest.param("\ud800", id="lone-surrogate"),  # not valid Unicode
+        pytest.param({"\ud800": "lone surrogate key"}, id="lone-surrogate-key"),
+        pytest.param(object(), id="object"),
+        pytest.param([1, [2, {"amount": 49.99}]], id="nested-float-in-list"),
+        pytest.param({"a": {"b": (1, 2.5)}}, id="nested-float-in-tuple"),
     ],
-    ids=repr,
 )
 def test_rejects(value: Any) -> None:
     with pytest.raises(CanonicalError):
