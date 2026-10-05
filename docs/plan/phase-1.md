@@ -13,7 +13,7 @@ New tech: SQLAlchemy, Alembic, FastAPI.
 Safety-core items (marked ★) follow the three-commit protocol: tests and walkthrough skeleton
 first, then the implementation, then the finished walkthrough.
 
-- [ ] P1-01 ★ `core/canonical.py`: canonical JSON (RFC 8785 style, floats rejected), `inputs_hash`,
+- [x] P1-01 ★ `core/canonical.py`: canonical JSON (RFC 8785 style, floats rejected), `inputs_hash`,
       idempotency key, ULID ids with prefixes; Hypothesis property tests
 - [ ] P1-02 ★ `core/conditions.py`: the condition operators (`eq ne lt lte gt gt in not_in
       matches is_internal_domain`) as a three-valued evaluator (true / false / unknown)
