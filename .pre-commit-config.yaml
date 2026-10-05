@@ -1,0 +1,15 @@
+# Local hooks only, so pre-commit works offline.
+repos:
+  - repo: local
+    hooks:
+      - id: detect-private-key
+        name: detect private keys
+        entry: uv run python scripts/detect_private_key.py
+        language: system
+        types: [text]
+      - id: make-check
+        name: make check
+        entry: make check
+        language: system
+        pass_filenames: false
+        always_run: true
