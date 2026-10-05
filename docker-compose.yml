@@ -1,0 +1,57 @@
+# Copenhagen local stack (Phase 0). Images are pinned by digest; see docs/plan/phase-0.md.
+name: copenhagen
+
+services:
+  postgres:
+    image: postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d copenhagen"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # A fresh named volume is root-owned, but the Temporal image runs as uid 1000.
+  # This one-shot service hands /data to that user before the server starts (Spike 3).
+  temporal-volume-init:
+    image: temporalio/temporal:1.9.1@sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e
+    user: root
+    entrypoint: ["chown", "-R", "1000:1000", "/data"]
+    volumes:
+      - temporal-data:/data
+    restart: "no"
+
+  temporal:
+    image: temporalio/temporal:1.9.1@sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e
+    depends_on:
+      temporal-volume-init:
+        condition: service_completed_successfully
+    command:
+      - server
+      - start-dev
+      - --ip
+      - 0.0.0.0
+      - --db-filename
+      - /data/temporal.db
+    ports:
+      - "7233:7233"
+      - "8233:8233"
+    volumes:
+      - temporal-data:/data
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "localhost:7233"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  pgdata:
+  temporal-data:

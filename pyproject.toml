@@ -1,0 +1,109 @@
+[project]
+name = "copenhagen"
+version = "0.0.1"
+description = "Intent-driven control plane: the AI plans; permissions and execution stay in code and human hands."
+readme = "NOW.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "pydantic>=2.9",
+    "pydantic-settings>=2.5",
+    "temporalio>=1.8",
+    "jsonschema>=4.23",
+    "pyyaml>=6.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.6",
+    "pyright>=1.1.380",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "hypothesis>=6.112",
+    "import-linter>=2.1",
+    "pre-commit>=3.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/copenhagen"]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src", "tests", "spikes"]
+# Ruff also formats code blocks in Markdown; the PRD and docs are prose, never reformatted.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "S", "PT", "ASYNC"]
+ignore = ["S101"]  # assert is fine in tests and spikes
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S"]
+"spikes/**" = ["S"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["copenhagen", "spikes", "scripts"]
+
+# ---------------------------------------------------------------- pyright
+[tool.pyright]
+include = ["src", "tests", "spikes", "scripts"]
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
+strict = [
+    "src/copenhagen/core",
+    "src/copenhagen/validator",
+    "src/copenhagen/policy",
+    "src/copenhagen/engine",
+    "src/copenhagen/audit",
+]
+venvPath = "."
+venv = ".venv"
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+testpaths = ["tests", "spikes"]
+python_files = ["test_*.py", "spike_*.py"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-ra --strict-markers -m 'not integration and not e2e and not live'"
+markers = [
+    "unit: pure, fast, no I/O",
+    "integration: needs Postgres and/or Temporal from `make up`",
+    "workflow: Temporal workflow tests in the time-skipping environment",
+    "e2e: end-to-end demo scenarios against the compose stack",
+    "live: talks to a real vendor account (opt-in per backend)",
+    "invariant(name): proves one of the PRD invariants I1..I12",
+]
+
+# ---------------------------------------------------------------- import-linter
+[tool.importlinter]
+root_package = "copenhagen"
+
+[[tool.importlinter.contracts]]
+name = "I2: adapters and secrets never touch the database"
+type = "forbidden"
+source_modules = ["copenhagen.adapters", "copenhagen.secrets"]
+forbidden_modules = ["copenhagen.db"]
+
+[[tool.importlinter.contracts]]
+name = "I3: the compiler never touches adapters or secrets"
+type = "forbidden"
+source_modules = ["copenhagen.compiler"]
+forbidden_modules = ["copenhagen.adapters", "copenhagen.secrets"]
+
+[[tool.importlinter.contracts]]
+name = "core is pure: no I/O layers"
+type = "forbidden"
+source_modules = ["copenhagen.core"]
+forbidden_modules = [
+    "copenhagen.db",
+    "copenhagen.adapters",
+    "copenhagen.secrets",
+    "copenhagen.api",
+    "copenhagen.engine",
+]
