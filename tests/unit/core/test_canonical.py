@@ -29,12 +29,7 @@ from copenhagen.core.canonical import (
     sha256_hex,
 )
 
-pytestmark = [
-    pytest.mark.unit,
-    pytest.mark.xfail(
-        strict=True, raises=NotImplementedError, reason="P1-01 implementation is next"
-    ),
-]
+pytestmark = pytest.mark.unit
 
 MAX_SAFE_INT = 2**53 - 1
 
@@ -50,6 +45,16 @@ json_values = st.recursive(
     max_leaves=25,
 )
 json_objects = st.dictionaries(st.text(max_size=8), json_values, max_size=6)
+
+# Keys ASCII at every depth: only then do code-point and UTF-16 order agree.
+ascii_keys = st.text(st.characters(max_codepoint=0x7F), max_size=8)
+ascii_keyed_values = st.recursive(
+    json_scalars,
+    lambda children: (
+        st.lists(children, max_size=5) | st.dictionaries(ascii_keys, children, max_size=5)
+    ),
+    max_leaves=25,
+)
 
 
 # ------------------------------------------------------------------ RFC 8785 vectors
@@ -198,7 +203,7 @@ def test_insertion_order_does_not_matter(value: dict[str, Any]) -> None:
     assert canonical_json(reversed_value) == canonical_json(value)
 
 
-@given(st.dictionaries(st.text(st.characters(max_codepoint=0x7F), max_size=8), json_values))
+@given(st.dictionaries(ascii_keys, ascii_keyed_values))
 def test_matches_stdlib_for_ascii_keys(value: dict[str, Any]) -> None:
     # With ASCII keys, code-point and UTF-16 order agree,
     # so the stdlib is a reference implementation.
