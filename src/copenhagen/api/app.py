@@ -7,6 +7,8 @@ import contextlib
 import hashlib
 import hmac
 import json
+import os
+import re
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -56,6 +58,21 @@ from copenhagen.service import Service
 from copenhagen.settings import Settings
 
 ROOT = Path(__file__).parent
+
+
+def hook_secret(settings: Settings, source: str) -> str | None:
+    """Each event source signs with its own secret so one vendor cannot forge another.
+
+    ``COPENHAGEN_HOOK_SECRET_<SOURCE>`` wins. The shared ``HOOK_SECRET`` is accepted only
+    outside production, for local development.
+    """
+
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", source):
+        return None
+    own = os.environ.get("COPENHAGEN_HOOK_SECRET_" + source.upper().replace("-", "_"))
+    if own:
+        return own
+    return settings.hook_secret if settings.env != "prod" else None
 
 
 def create_app(
@@ -648,7 +665,9 @@ def create_app(
         id_ = actor(request, "run")
         if not set(scopes) <= request.state.scopes:
             raise HTTPException(403, "new key cannot exceed the current credential scopes")
-        return service.issue_key(id_, scopes, hours)
+        return service.issue_key(
+            id_, scopes, hours, not_after=getattr(request.state, "key_expires_at", None)
+        )
 
     @app.post("/v1/api-keys/{key_id}/revoke")
     def revoke_key_api(request: Request, key_id: str):
@@ -656,11 +675,12 @@ def create_app(
         from copenhagen.db.store import new_id
 
         id_ = actor(request, "run")
+        is_admin = "admin" in request.state.scopes and _is_admin(id_)
         with transaction(database) as session:
             matches = [
                 k
                 for k in rows(session, ApiKey, service.tenant)
-                if k.data["key_id"] == key_id and k.data["principal_id"] == id_
+                if k.data["key_id"] == key_id and (is_admin or k.data["principal_id"] == id_)
             ]
             if not matches:
                 raise HTTPException(404, "API key not found")
@@ -674,6 +694,29 @@ def create_app(
                 key_id=key_id,
             )
         return {"revoked": True}
+
+    def _is_admin(id_: str) -> bool:
+        with transaction(database) as session:
+            return "admin" in service.identity(session, id_).roles
+
+    @app.get("/v1/api-keys")
+    def list_keys_api(request: Request):
+        """Key metadata only; hashes and secrets never leave the database."""
+
+        id_ = actor(request, "read")
+        is_admin = "admin" in request.state.scopes and _is_admin(id_)
+        with transaction(database) as session:
+            return [
+                {
+                    "key_id": k.data["key_id"],
+                    "principal_id": k.data["principal_id"],
+                    "scopes": k.data["scopes"],
+                    "expires_at": k.data["expires_at"],
+                    "status": k.status,
+                }
+                for k in rows(session, ApiKey, service.tenant)
+                if is_admin or k.data["principal_id"] == id_
+            ]
 
     @app.post("/v1/api-keys")
     def key_api(request: Request, body: dict[str, Any]):
@@ -815,8 +858,9 @@ def create_app(
 
     @app.post("/v1/hooks/{source}")
     async def hook_api(request: Request, source: str):
-        if not settings.hook_secret:
-            raise HTTPException(503, "hook signing key not configured")
+        secret = hook_secret(settings, source)
+        if not secret:
+            raise HTTPException(503, "hook signing key not configured for this source")
         raw = await request.body()
         timestamp = request.headers.get("x-copenhagen-timestamp", "")
         nonce = request.headers.get("x-copenhagen-nonce", "")
@@ -828,7 +872,7 @@ def create_app(
         ):
             raise HTTPException(401, "invalid hook timestamp or nonce")
         payload = source.encode() + b"." + timestamp.encode() + b"." + nonce.encode() + b"." + raw
-        expected = hmac.new(settings.hook_secret.encode(), payload, hashlib.sha256).hexdigest()
+        expected = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
         if not hmac.compare_digest(signature, expected):
             raise HTTPException(401, "invalid hook signature")
         body = json.loads(raw)

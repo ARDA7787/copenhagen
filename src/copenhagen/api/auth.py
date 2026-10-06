@@ -58,6 +58,7 @@ class SessionMiddleware(BaseHTTPMiddleware):
                 request.state.actor = key.data["principal_id"]
                 request.state.scopes = set(key.data["scopes"])
                 request.state.api_key = True
+                request.state.key_expires_at = datetime.fromisoformat(key.data["expires_at"])
                 request.state.authenticated_at = None
             if request.state.actor:
                 try:

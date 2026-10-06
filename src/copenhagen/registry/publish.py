@@ -1,5 +1,6 @@
 """Versioned, immutable capability and recipe catalog."""
 
+from fnmatch import fnmatchcase
 from typing import Any
 
 from sqlalchemy import select
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session
 from copenhagen.audit.chain import append
 from copenhagen.core.capability import HIGH_RISK, CapabilitySpec
 from copenhagen.core.recipe import RecipeSpec
-from copenhagen.db.models import Capability, Preapproval, Recipe
+from copenhagen.db.models import Capability, Preapproval, Recipe, Tenant
 from copenhagen.db.store import lock
 
 
@@ -36,6 +37,30 @@ def recipe(session: Session, tenant: str, name: str, version: int | None = None)
     return RecipeSpec.model_validate(row.data)
 
 
+# Low-risk classes are ordered; a capability may declare a stricter one than its floor.
+# High-risk floors must match exactly, because each one carries its own controls (for
+# example, only ``financial`` is held to the money ceiling).
+_ORDER = {"read": 0, "internal_write": 1, "external_write": 2}
+
+
+def check_risk_floor(spec: CapabilitySpec, floors: dict[str, str]) -> None:
+    """Stop an author from declaring a dangerous capability as low risk."""
+
+    declared = spec.risk.class_
+    for pattern, floor in floors.items():
+        if not fnmatchcase(spec.name, pattern):
+            continue
+        if floor in _ORDER and declared in _ORDER:
+            if _ORDER[declared] >= _ORDER[floor]:
+                continue
+        elif floor in _ORDER or declared == floor:
+            continue
+        raise ValueError(
+            f"{spec.name} matches risk floor {pattern!r} "
+            f"and must be classed {floor}, not {declared}"
+        )
+
+
 def publish(
     session: Session,
     tenant: str,
@@ -51,12 +76,13 @@ def publish(
         if existing.data != data:
             raise ValueError("published version is immutable; increment the version")
         return False
-    if (
-        isinstance(spec, CapabilitySpec)
-        and spec.risk.class_ in HIGH_RISK
-        and (not second_reviewer or second_reviewer == actor)
-    ):
-        raise ValueError("high-risk publication needs an independent second reviewer")
+    if isinstance(spec, CapabilitySpec):
+        row = session.get(Tenant, tenant)
+        config: dict[str, Any] = row.config if row else {}
+        check_risk_floor(spec, config.get("risk_floors", {}))
+        reviewed = HIGH_RISK | set(config.get("review_required", []))
+        if spec.risk.class_ in reviewed and (not second_reviewer or second_reviewer == actor):
+            raise ValueError("high-risk publication needs an independent second reviewer")
     if isinstance(spec, RecipeSpec):
         for step in spec.steps:
             if capability(session, tenant, step.capability).status != "active":
