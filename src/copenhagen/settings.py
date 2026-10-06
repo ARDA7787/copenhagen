@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
-    env: Literal["dev", "test", "prod"] = "dev"
+    env: Literal["dev", "test", "prod"] = "prod"
     database_url: str = (
         "postgresql+psycopg://copenhagen_app:copenhagen_app@localhost:5432/copenhagen"
     )
@@ -17,7 +17,6 @@ class Settings(BaseSettings):
     temporal_namespace: str = "default"
     tenant_id: str = "default"
     copenhagen_dev_login: bool = False
-    copenhagen_dev_backends: bool = False
     policy_directory: str | None = None
     session_hours: int = Field(default=8, ge=1, le=24)
     oidc_client_id: str | None = None
@@ -32,7 +31,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def production_guards(self) -> Self:
         if self.env == "prod":
-            if self.copenhagen_dev_login or self.copenhagen_dev_backends:
+            if self.copenhagen_dev_login:
                 raise ValueError(
                     "development identity/backend overrides are forbidden in production"
                 )

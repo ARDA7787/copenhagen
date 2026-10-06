@@ -43,23 +43,25 @@ async def domain_worker(queue: str) -> None:
 
     configure_logging()
 
-    env = os.environ.get("ENV", "dev")
-    override = os.environ.get("COPENHAGEN_DEV_BACKENDS", "0") == "1"
-    config = Path(
-        os.environ.get(
-            "COPENHAGEN_BACKENDS_FILE",
-            "config/backends.dev.yaml" if override else "config/backends.yaml",
-        )
-    )
-    backends = yaml.safe_load(await asyncio.to_thread(config.read_text))
+    env = os.environ.get("ENV", "prod")
+    insecure = os.environ.get("COPENHAGEN_ALLOW_INSECURE_BACKENDS", "0") == "1"
+    config = os.environ.get("COPENHAGEN_BACKENDS_FILE")
+    backends: dict[str, str] = {}
+    if config:
+        loaded = yaml.safe_load(await asyncio.to_thread(Path(config).read_text)) or {}
+        if not isinstance(loaded, dict) or not all(
+            isinstance(k, str) and isinstance(v, str) for k, v in loaded.items()
+        ):
+            raise ValueError("COPENHAGEN_BACKENDS_FILE must map backend names to base URLs")
+        backends = loaded
     credentials = frozenset(filter(None, os.environ.get("COPENHAGEN_CREDENTIALS", "").split(",")))
     activities = DomainActivities(
         queue,
         env=env,
         backends=backends,
         credentials=credentials,
-        dev_override=override,
-        fake_path=os.environ.get("COPENHAGEN_FAKE_DB", ".data/fake.sqlite"),
+        dev_override=insecure,
+        plugins=os.environ.get("COPENHAGEN_ADAPTERS", ""),
     )
     client = await connect_temporal(
         os.environ.get("TEMPORAL_ADDRESS", "localhost:7233"),

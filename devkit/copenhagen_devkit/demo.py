@@ -25,10 +25,11 @@ from copenhagen.db.store import connect, rows, transaction
 from copenhagen.engine.control import ControlActivities
 from copenhagen.engine.domain import DomainActivities
 from copenhagen.engine.workflow import RunPlan
-from copenhagen.mockworld import create_app
-from copenhagen.seed import seed
 from copenhagen.service import Service
 from copenhagen.settings import Settings
+from copenhagen_devkit.fake import FakeAdapter, World
+from copenhagen_devkit.mockworld import create_app
+from copenhagen_devkit.seed import seed
 
 
 async def demo() -> dict[str, Any]:
@@ -55,7 +56,11 @@ async def demo() -> dict[str, Any]:
             httpx.AsyncClient(transport=httpx.ASGITransport(app=world))
         )
         for queue in ("finance", "people", "comms", "github", "platform", "customers", "trading"):
-            worker = DomainActivities(queue, env=settings.env, fake_path=".data/fake.sqlite")
+            worker = DomainActivities(
+                queue,
+                env=settings.env,
+                extra_adapters={"fake": FakeAdapter(World(".data/fake.sqlite"))},
+            )
             worker.adapters["http"] = HTTPAdapter(
                 {
                     name: "http://localhost"

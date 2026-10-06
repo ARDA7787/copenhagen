@@ -17,7 +17,8 @@ from copenhagen.db.store import rows, transaction
 from copenhagen.engine.control import ControlActivities
 from copenhagen.engine.domain import DomainActivities
 from copenhagen.engine.workflow import RunPlan
-from copenhagen.mockworld import create_app
+from copenhagen_devkit.fake import FakeAdapter, World
+from copenhagen_devkit.mockworld import create_app
 
 pytestmark = pytest.mark.workflow
 
@@ -53,7 +54,9 @@ async def workers(stack, env, service, tmp_path):
     )
     for queue in ("finance", "comms", "people", "github", "platform", "customers", "trading"):
         domain = DomainActivities(
-            queue, env="test", backends={}, fake_path=str(tmp_path / "fake.sqlite")
+            queue,
+            env="test",
+            extra_adapters={"fake": FakeAdapter(World(str(tmp_path / "fake.sqlite")))},
         )
         domain.adapters["http"] = HTTPAdapter(
             {

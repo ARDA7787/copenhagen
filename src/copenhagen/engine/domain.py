@@ -1,14 +1,13 @@
 """Domain activities: vendor credentials, no DB import, and no blind retries."""
 
 import os
+from collections.abc import Mapping
 from typing import Any
 
 from temporalio import activity
 
-from copenhagen.adapters.base import Adapter, invoke_checked
-from copenhagen.adapters.fake import FakeAdapter, World
-from copenhagen.adapters.http import HTTPAdapter
-from copenhagen.adapters.human import HumanAdapter
+from copenhagen.adapters.base import Adapter, CallPoller, invoke_checked
+from copenhagen.adapters.registry import AdapterContext, build
 from copenhagen.core.calls import CapabilityCall, InvokeResult, Preview
 from copenhagen.core.schema import validate_values
 from copenhagen.secrets.broker import CredentialBroker
@@ -19,24 +18,29 @@ class DomainActivities:
         self,
         queue: str,
         *,
-        env: str = "dev",
-        backends: dict[str, str] | None = None,
-        fake_path: str = ".data/fake.sqlite",
+        env: str = "prod",
+        backends: Mapping[str, str] | None = None,
         credentials: frozenset[str] = frozenset(),
         signing_key: str | None = None,
         dev_override: bool = False,
+        plugins: str = "",
+        extra_adapters: Mapping[str, Adapter] | None = None,
     ) -> None:
         self.queue = queue
         key = signing_key or os.environ.get("COPENHAGEN_AUTHORIZATION_KEY", "dev-control-key")
         if env == "prod" and (key == "dev-control-key" or dev_override):
             raise ValueError("production worker requires authorization key; no dev overrides")
         self.broker = CredentialBroker(queue, key, credentials)
-        self.adapters: dict[str, Adapter] = {
-            "http": HTTPAdapter(backends or {}, dev_override=dev_override, env=env),
-            "human": HumanAdapter(),
-        }
-        if env != "prod":
-            self.adapters["fake"] = FakeAdapter(World(fake_path))
+        ctx = AdapterContext(
+            env=env, backends=dict(backends or {}), allow_insecure_backends=dev_override
+        )
+        self.adapters: dict[str, Adapter] = build(ctx, plugins)
+        for name, adapter in (extra_adapters or {}).items():
+            if name in self.adapters:
+                raise ValueError(f"adapter {name!r} already registered")
+            if env == "prod" and not getattr(adapter, "production_ready", True):
+                raise ValueError(f"adapter {name!r} is development-only and refused in production")
+            self.adapters[name] = adapter
 
     @activity.defn(name="invoke_capability")
     async def invoke(self, call: CapabilityCall) -> InvokeResult:
@@ -61,7 +65,7 @@ class DomainActivities:
         await adapter.validate_config(call.capability.executor)
         result = (
             await adapter.poll_call(call, args["handle"], cred)
-            if isinstance(adapter, HTTPAdapter)
+            if isinstance(adapter, CallPoller)
             else await adapter.poll(call.capability.executor.backend + ":" + args["handle"], cred)
         )
         if result.ok:

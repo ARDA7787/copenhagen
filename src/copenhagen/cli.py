@@ -18,7 +18,6 @@ cap_app = typer.Typer()
 audit_app = typer.Typer()
 plan_app = typer.Typer()
 run_app = typer.Typer()
-dev_app = typer.Typer()
 admin_app = typer.Typer(help="Local operator administration (requires database access)")
 recipe_app = typer.Typer()
 app.add_typer(admin_app, name="admin")
@@ -27,7 +26,6 @@ app.add_typer(cap_app, name="capability")
 app.add_typer(audit_app, name="audit")
 app.add_typer(plan_app, name="plan")
 app.add_typer(run_app, name="run")
-app.add_typer(dev_app, name="dev")
 
 
 def service():
@@ -133,21 +131,6 @@ def audit_export(path: Path):
     output({"path": str(path.resolve()), "events": len(data)})
 
 
-@dev_app.command("seed")
-def dev_seed():
-    from copenhagen.seed import seed
-
-    seed(service())
-    output({"seeded": True})
-
-
-@dev_app.command("demo")
-def dev_demo():
-    from copenhagen.demo import demo
-
-    asyncio.run(demo())
-
-
 @app.command("serve")
 def serve(host: str = "127.0.0.1", port: int = 8000):
     import uvicorn
@@ -167,13 +150,6 @@ def worker(queue: str):
     from copenhagen.runtime import domain_worker
 
     asyncio.run(domain_worker(queue))
-
-
-@app.command("mockworld")
-def mockworld(port: int = 8010):
-    import uvicorn
-
-    uvicorn.run("copenhagen.mockworld:create_app", factory=True, host="127.0.0.1", port=port)
 
 
 @run_app.command("recipe")

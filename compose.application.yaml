@@ -29,7 +29,7 @@ services:
     env_file: ${DOMAIN_ENV_FILE:-deploy/operations.env}
     environment:
       COPENHAGEN_BACKENDS_FILE: /config/backends.yaml
-    volumes: ["./config/backends.yaml:/config/backends.yaml:ro"]
+    volumes: ["${BACKENDS_FILE:-./deploy/backends.yaml}:/config/backends.yaml:ro"]
     restart: unless-stopped
     read_only: true
     tmpfs: [/tmp]
