@@ -113,7 +113,16 @@ class Nonce(Record):
 
 
 class Outbox(Record):
+    """Status: pending -> delivered, or dead after a permanent failure (operator retry)."""
+
     __tablename__ = "dispatch_outbox"
+    run_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Doubles as a claim lease while a delivery is in flight.
+    next_attempt_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    last_error: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class PublicationReview(Record):

@@ -7,10 +7,32 @@ from typing import Any, Protocol
 from temporalio.client import Client
 from temporalio.common import WorkflowIDReusePolicy
 from temporalio.exceptions import WorkflowAlreadyStartedError
+from temporalio.service import RPCError, RPCStatusCode
 
 from copenhagen.engine.connection import connect_temporal
 from copenhagen.engine.contracts import RunEnvelope
 from copenhagen.settings import Settings
+
+
+class PermanentDeliveryError(Exception):
+    """Retrying cannot succeed (closed workflow, rejected payload); dead-letter it."""
+
+
+# Statuses where the request itself is wrong or the target is gone for good.
+PERMANENT = {
+    RPCStatusCode.NOT_FOUND,
+    RPCStatusCode.INVALID_ARGUMENT,
+    RPCStatusCode.FAILED_PRECONDITION,
+    RPCStatusCode.PERMISSION_DENIED,
+    RPCStatusCode.UNIMPLEMENTED,
+    RPCStatusCode.OUT_OF_RANGE,
+}
+
+
+def classify(error: RPCError) -> Exception:
+    if error.status in PERMANENT:
+        return PermanentDeliveryError(error.status.name)
+    return error
 
 
 class RunEngine(Protocol):
@@ -33,15 +55,22 @@ class TemporalEngine:
         )
 
     async def start(self, run: RunEnvelope) -> None:
-        with contextlib.suppress(WorkflowAlreadyStartedError):
-            await self.client.start_workflow(
-                "RunPlan",
-                run,
-                id=run.run_id,
-                task_queue="control",
-                execution_timeout=timedelta(hours=self.timeout_hours),
-                id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
-            )
+        try:
+            with contextlib.suppress(WorkflowAlreadyStartedError):
+                await self.client.start_workflow(
+                    "RunPlan",
+                    run,
+                    id=run.run_id,
+                    task_queue="control",
+                    execution_timeout=timedelta(hours=self.timeout_hours),
+                    id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
+                )
+        except RPCError as error:
+            raise classify(error) from error
 
     async def signal(self, run_id: str, name: str, value: Any) -> None:
-        await self.client.get_workflow_handle(run_id).signal(name, value)
+        try:
+            await self.client.get_workflow_handle(run_id).signal(name, value)
+        except RPCError as error:
+            # NOT_FOUND here means the workflow already closed (completed, timed out).
+            raise classify(error) from error

@@ -1,16 +1,66 @@
 """Registry, tenant isolation, immutable specs and append-only audit grants."""
 
-from alembic import op
+from typing import Any
 
-from copenhagen.db.models import AuditEvent, Capability, Recipe, Tenant
+import sqlalchemy as sa
+from alembic import op
+from sqlalchemy.dialects.postgresql import JSONB
+
+JSON = sa.JSON().with_variant(JSONB, "postgresql")
+metadata = sa.MetaData()
 
 revision = "0001"
 down_revision = None
 
 
+def record(name: str, *extra: Any) -> sa.Table:
+    """Frozen copy of the Record shape as of this revision. Never edit after release."""
+    return sa.Table(
+        name,
+        metadata,
+        sa.Column("tenant_id", sa.String(), primary_key=True),
+        sa.Column("id", sa.String(), primary_key=True),
+        sa.Column("data", JSON, nullable=False),
+        sa.Column("status", sa.String(), nullable=False, index=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        *extra,
+    )
+
+
+def versioned(name: str) -> sa.Table:
+    return record(
+        name,
+        sa.Column("name", sa.String(), nullable=False, index=True),
+        sa.Column("version", sa.Integer(), nullable=False),
+        sa.UniqueConstraint("tenant_id", "name", "version"),
+    )
+
+
+tenants = sa.Table(
+    "tenants",
+    metadata,
+    sa.Column("id", sa.String(), primary_key=True),
+    sa.Column("name", sa.String(), nullable=False),
+    sa.Column("config", JSON, nullable=False),
+)
+audit_events = sa.Table(
+    "audit_events",
+    metadata,
+    sa.Column("tenant_id", sa.String(), primary_key=True),
+    sa.Column("seq", sa.BigInteger(), primary_key=True, autoincrement=False),
+    sa.Column("id", sa.String(), nullable=False),
+    sa.Column("data", JSON, nullable=False),
+    sa.Column("prev_hash", sa.String(), nullable=False),
+    sa.Column("hash", sa.String(), nullable=False),
+    sa.UniqueConstraint("tenant_id", "id"),
+)
+capabilities = versioned("capabilities")
+recipes = versioned("recipes")
+
+
 def upgrade() -> None:
     connection = op.get_bind()
-    for table in (Tenant.__table__, Capability.__table__, Recipe.__table__, AuditEvent.__table__):
+    for table in (tenants, capabilities, recipes, audit_events):
         table.create(connection)
     if connection.dialect.name == "postgresql":
         op.execute("""CREATE FUNCTION cph_reject_audit_mutation() RETURNS trigger

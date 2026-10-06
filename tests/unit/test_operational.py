@@ -47,7 +47,10 @@ async def test_committed_start_survives_api_outage(service):
 
     await Dispatcher(service.engine, service.tenant, Unavailable()).flush()
     with transaction(service.engine) as session:
-        assert rows(session, Outbox, service.tenant)[0].status == "pending"
+        message = rows(session, Outbox, service.tenant)[0]
+        assert message.status == "pending"
+        assert message.last_error == "ConnectionError"
+        message.next_attempt_at = None  # skip the backoff; a restart waits it out
     restarted_engine = RecordingEngine()
     restarted = Dispatcher(service.engine, service.tenant, restarted_engine)
     await restarted.flush()

@@ -1,6 +1,11 @@
 """Local model/service tests use isolated SQLite files; PostgreSQL tests are separate."""
 
+import os
+from pathlib import Path
+
 import pytest
+from alembic import command
+from alembic.config import Config
 
 from copenhagen.db.models import Base
 from copenhagen.db.store import connect
@@ -45,3 +50,21 @@ def company(tmp_path):
     svc.assign_role("operator", "reviewer", "approver:ops", True)
     yield svc
     db.dispose()
+
+
+TEST_OWNER_URL = (
+    "postgresql+psycopg://copenhagen_owner:copenhagen_owner@localhost:5432/copenhagen_test"
+)
+
+
+@pytest.fixture(scope="session")
+def migrated_test_database():
+    """Bring the shared PostgreSQL test database to the latest migration, once per run.
+
+    Integration and e2e tests run as the restricted app role, which cannot change the
+    schema, so this uses the owner role. Tests isolate themselves with unique tenants.
+    """
+    url = os.environ.get("TEST_DATABASE_OWNER_URL", TEST_OWNER_URL)
+    config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
+    command.upgrade(config, "head")

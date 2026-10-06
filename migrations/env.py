@@ -4,8 +4,13 @@ from sqlalchemy import create_engine
 from copenhagen.db.models import Base
 from copenhagen.settings import Settings
 
-settings = Settings()
-url = settings.database_owner_url or settings.db_url
+# An explicit URL on the Alembic config (tests, tooling) wins over the environment.
+explicit = context.config.get_main_option("sqlalchemy.url")
+if explicit:
+    url = explicit
+else:
+    settings = Settings()
+    url = settings.database_owner_url or settings.db_url
 engine = create_engine(url.replace("postgresql+asyncpg:", "postgresql+psycopg:"))
 with engine.connect() as connection:
     context.configure(connection=connection, target_metadata=Base.metadata)
