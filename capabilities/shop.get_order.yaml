@@ -1,0 +1,38 @@
+apiVersion: copenhagen/v1
+kind: Capability
+name: shop.get_order
+version: 1
+status: active
+owner: team-finance
+summary: Shop get order
+inputs:
+  order_id:
+    type: string
+outputs:
+  payment_id:
+    type: string
+  total_cents:
+    type: integer
+  customer_email:
+    type: string
+executor:
+  adapter: http
+  backend: shop
+  operation: GET /operations/get_order
+  queue: finance
+  allowed_hosts:
+  - shop.example.com
+risk:
+  class: read
+  reversible: false
+  external_effect: false
+data:
+  classification: internal
+  output_trust: trusted
+retry:
+  mode: safe_only
+  max_attempts: 3
+compensate: none
+compensate_reason: Escalate to the domain owner; no safe automatic undo.
+verify: none
+verify_reason: Read-only observation

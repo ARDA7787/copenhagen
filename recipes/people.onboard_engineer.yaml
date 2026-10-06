@@ -1,0 +1,88 @@
+apiVersion: copenhagen/v1
+kind: Recipe
+version: 1
+owner: operations
+on_failure: continue
+name: people.onboard_engineer
+description: Onboard an engineer across accounts, access, payroll and welcome email.
+parameters:
+  full_name:
+    type: string
+    minLength: 1
+  personal_email:
+    type: string
+    format: email
+    sensitive: true
+  team:
+    type: string
+    enum:
+    - backend
+    - frontend
+    - platform
+  start_date:
+    type: string
+    format: date
+approval:
+  pre_approvable: true
+  covers_steps:
+  - google
+  - slack
+  - github
+  constraints:
+  - parameter: team
+    op: in
+    value:
+    - backend
+    - frontend
+    - platform
+  - parameter: personal_email
+    op: is_internal_domain
+    value: false
+steps:
+- id: google
+  capability: people.create_google_account@1
+  inputs:
+    full_name: '{{full_name}}'
+    recovery_email: '{{personal_email}}'
+- id: slack
+  capability: comms.invite_to_slack@1
+  inputs:
+    email: ${google.outputs.work_email}
+    channels:
+    - eng
+    - '{{team}}'
+  depends_on:
+  - google
+- id: github
+  capability: github.add_team_member@1
+  inputs:
+    email: ${google.outputs.work_email}
+    team: '{{team}}'
+  depends_on:
+  - google
+- id: aws
+  capability: platform.grant_aws_role@1
+  inputs:
+    email: ${google.outputs.work_email}
+    role: engineer-{{team}}
+  depends_on:
+  - google
+- id: payroll
+  capability: people.add_to_payroll@1
+  inputs:
+    full_name: '{{full_name}}'
+    start_date: '{{start_date}}'
+    work_email: ${google.outputs.work_email}
+  depends_on:
+  - google
+- id: welcome
+  capability: comms.send_welcome_email@1
+  inputs:
+    to: ${google.outputs.work_email}
+    team: '{{team}}'
+  depends_on:
+  - google
+  - slack
+  - github
+  - aws
+  - payroll

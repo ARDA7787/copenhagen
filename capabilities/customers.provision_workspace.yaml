@@ -1,0 +1,53 @@
+apiVersion: copenhagen/v1
+kind: Capability
+name: customers.provision_workspace
+version: 1
+status: active
+owner: team-customers
+summary: Customers provision workspace
+inputs:
+  customer_id:
+    type: string
+    sensitive: true
+  plan:
+    type: string
+    enum:
+    - starter
+    - growth
+outputs:
+  record_id:
+    type: string
+  status:
+    type: string
+executor:
+  adapter: http
+  backend: customers
+  operation: POST /operations/provision_workspace
+  queue: customers
+  allowed_hosts:
+  - customers.example.com
+risk:
+  class: identity
+  reversible: false
+  external_effect: true
+data:
+  classification: confidential
+  output_trust: trusted
+retry:
+  mode: safe_only
+  max_attempts: 3
+compensate: none
+compensate_reason: Escalate to the domain owner; no safe automatic undo.
+verify:
+  capability: customers.get_workspace@1
+  expect:
+    output: status
+    op: in
+    value:
+    - succeeded
+    - pending
+    - active
+    - paper_active
+  within: 30s
+  inputs:
+    idempotency_key: ${idempotency_key}

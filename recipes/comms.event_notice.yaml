@@ -1,0 +1,30 @@
+apiVersion: copenhagen/v1
+kind: Recipe
+version: 1
+owner: operations
+on_failure: continue
+name: comms.event_notice
+description: Post a constrained operational event notification.
+allow_event_trigger: true
+parameters:
+  channel:
+    type: string
+    enum:
+    - ops
+  text:
+    type: string
+    maxLength: 500
+approval:
+  pre_approvable: true
+  covers_steps:
+  - notify
+  constraints:
+  - parameter: channel
+    op: eq
+    value: ops
+steps:
+- id: notify
+  capability: comms.post_slack_message@1
+  inputs:
+    channel: '{{channel}}'
+    text: '{{text}}'

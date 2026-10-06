@@ -1,0 +1,36 @@
+apiVersion: copenhagen/v1
+kind: Capability
+name: payments.get_refund
+version: 1
+status: active
+owner: team-finance
+summary: Payments get refund
+inputs:
+  idempotency_key:
+    type: string
+outputs:
+  refund_id:
+    type: string
+  status:
+    type: string
+executor:
+  adapter: http
+  backend: stripe
+  operation: GET /operations/get_effect
+  queue: finance
+  allowed_hosts:
+  - api.stripe.com
+risk:
+  class: read
+  reversible: false
+  external_effect: false
+data:
+  classification: internal
+  output_trust: trusted
+retry:
+  mode: safe_only
+  max_attempts: 3
+compensate: none
+compensate_reason: Escalate to the domain owner; no safe automatic undo.
+verify: none
+verify_reason: Read-only observation

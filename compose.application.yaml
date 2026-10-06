@@ -1,0 +1,35 @@
+# Application processes for an existing PostgreSQL and Temporal deployment.
+# Keep the control and each domain env file separate; domain files contain no DB credentials.
+name: copenhagen-application
+services:
+  api:
+    build: .
+    image: copenhagen:local
+    command: [serve, --host, 0.0.0.0]
+    env_file: ${CONTROL_ENV_FILE:-deploy/control.env}
+    ports: ["127.0.0.1:8000:8000"]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    healthcheck:
+      test: [CMD, /app/.venv/bin/python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=5)"]
+      interval: 15s
+      timeout: 6s
+      retries: 5
+  control:
+    image: copenhagen:local
+    command: [control-worker]
+    env_file: ${CONTROL_ENV_FILE:-deploy/control.env}
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+  domain:
+    image: copenhagen:local
+    command: [worker, "${DOMAIN_QUEUE:-operations}"]
+    env_file: ${DOMAIN_ENV_FILE:-deploy/operations.env}
+    environment:
+      COPENHAGEN_BACKENDS_FILE: /config/backends.yaml
+    volumes: ["./config/backends.yaml:/config/backends.yaml:ro"]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]

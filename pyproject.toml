@@ -2,7 +2,7 @@
 name = "copenhagen"
 version = "0.0.1"
 description = "Intent-driven control plane: the AI plans; permissions and execution stay in code and human hands."
-readme = "NOW.md"
+readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "pydantic>=2.9",
@@ -10,7 +10,23 @@ dependencies = [
     "temporalio>=1.8",
     "jsonschema>=4.23",
     "pyyaml>=6.0",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "psycopg[binary]>=3.2",
+    "httpx>=0.27",
+    "authlib>=1.3",
+    "cedarpy>=4",
+    "typer>=0.12",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.12",
+    "structlog>=24",
+    "email-validator>=2",
 ]
+
+[project.scripts]
+copenhagen = "copenhagen.cli:app"
 
 [dependency-groups]
 dev = [

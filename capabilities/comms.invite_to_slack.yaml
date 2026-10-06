@@ -1,0 +1,53 @@
+apiVersion: copenhagen/v1
+kind: Capability
+name: comms.invite_to_slack
+version: 1
+status: active
+owner: team-comms
+summary: Comms invite to slack
+inputs:
+  email:
+    type: string
+    format: email
+    sensitive: true
+  channels:
+    type: array
+    items:
+      type: string
+outputs:
+  record_id:
+    type: string
+  status:
+    type: string
+executor:
+  adapter: http
+  backend: slack
+  operation: POST /operations/invite_to_slack
+  queue: comms
+  allowed_hosts:
+  - slack.com
+risk:
+  class: identity
+  reversible: false
+  external_effect: true
+data:
+  classification: confidential
+  output_trust: trusted
+retry:
+  mode: safe_only
+  max_attempts: 3
+compensate: none
+compensate_reason: Escalate to the domain owner; no safe automatic undo.
+verify:
+  capability: comms.get_slack_invitation@1
+  expect:
+    output: status
+    op: in
+    value:
+    - succeeded
+    - pending
+    - active
+    - paper_active
+  within: 30s
+  inputs:
+    idempotency_key: ${idempotency_key}

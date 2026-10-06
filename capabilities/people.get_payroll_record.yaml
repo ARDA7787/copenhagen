@@ -1,0 +1,36 @@
+apiVersion: copenhagen/v1
+kind: Capability
+name: people.get_payroll_record
+version: 1
+status: active
+owner: team-people
+summary: People get payroll record
+inputs:
+  idempotency_key:
+    type: string
+outputs:
+  record_id:
+    type: string
+  status:
+    type: string
+executor:
+  adapter: http
+  backend: payroll
+  operation: GET /operations/get_effect
+  queue: people
+  allowed_hosts:
+  - payroll.example.com
+risk:
+  class: read
+  reversible: false
+  external_effect: false
+data:
+  classification: internal
+  output_trust: trusted
+retry:
+  mode: safe_only
+  max_attempts: 3
+compensate: none
+compensate_reason: Escalate to the domain owner; no safe automatic undo.
+verify: none
+verify_reason: Read-only observation

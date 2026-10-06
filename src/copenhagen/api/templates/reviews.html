@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block content %}
+<h1>Capability publication reviews</h1><p>High-risk capabilities require an independent publisher to review the exact specification before it becomes available.</p>
+{% for review in reviews if review.status == 'pending' %}<section class="panel"><h2>{{ review.spec.name }}@{{ review.spec.version }}</h2><p>Submitted by {{ review.author }} · Content {{ review.spec_hash[:12] }}</p><pre>{{ review.spec|tojson(indent=2) }}</pre>
+<form method="post" action="/reviews/{{ review.id }}/decide"><input type="hidden" name="csrf" value="{{ csrf }}"><label>Review reason<input name="reason" required></label><button name="decision" value="approve">Approve and publish</button><button class="secondary" name="decision" value="reject">Reject</button></form></section>{% else %}<section class="panel">No publications awaiting review.</section>{% endfor %}{% endblock %}

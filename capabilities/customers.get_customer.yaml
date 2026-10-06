@@ -1,0 +1,36 @@
+apiVersion: copenhagen/v1
+kind: Capability
+name: customers.get_customer
+version: 1
+status: active
+owner: team-customers
+summary: Customers get customer
+inputs:
+  idempotency_key:
+    type: string
+outputs:
+  customer_id:
+    type: string
+  status:
+    type: string
+executor:
+  adapter: http
+  backend: customers
+  operation: GET /operations/get_effect
+  queue: customers
+  allowed_hosts:
+  - customers.example.com
+risk:
+  class: read
+  reversible: false
+  external_effect: false
+data:
+  classification: internal
+  output_trust: trusted
+retry:
+  mode: safe_only
+  max_attempts: 3
+compensate: none
+compensate_reason: Escalate to the domain owner; no safe automatic undo.
+verify: none
+verify_reason: Read-only observation

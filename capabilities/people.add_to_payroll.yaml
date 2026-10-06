@@ -1,0 +1,56 @@
+apiVersion: copenhagen/v1
+kind: Capability
+name: people.add_to_payroll
+version: 1
+status: active
+owner: team-people
+summary: People add to payroll
+inputs:
+  full_name:
+    type: string
+  start_date:
+    type: string
+    format: date
+  work_email:
+    type: string
+    format: email
+    sensitive: true
+outputs:
+  record_id:
+    type: string
+  status:
+    type: string
+executor:
+  adapter: http
+  backend: payroll
+  operation: POST /operations/add_to_payroll
+  queue: people
+  allowed_hosts:
+  - payroll.example.com
+risk:
+  class: identity
+  reversible: false
+  external_effect: true
+data:
+  classification: confidential
+  output_trust: trusted
+retry:
+  mode: safe_only
+  max_attempts: 3
+compensate: none
+compensate_reason: Escalate to the domain owner; no safe automatic undo.
+verify:
+  capability: people.get_payroll_record@1
+  expect:
+    output: status
+    op: in
+    value:
+    - succeeded
+    - pending
+    - active
+    - paper_active
+  within: 30s
+  inputs:
+    idempotency_key: ${idempotency_key}
+approval:
+  approver_role: approver:finance

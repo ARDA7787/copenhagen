@@ -1,0 +1,50 @@
+apiVersion: copenhagen/v1
+kind: Capability
+name: comms.post_slack_message
+version: 1
+status: active
+owner: team-comms
+summary: Comms post slack message
+inputs:
+  channel:
+    type: string
+  text:
+    type: string
+    maxLength: 4000
+outputs:
+  record_id:
+    type: string
+  status:
+    type: string
+executor:
+  adapter: http
+  backend: slack
+  operation: POST /operations/post_slack_message
+  queue: comms
+  allowed_hosts:
+  - slack.com
+risk:
+  class: external_write
+  reversible: false
+  external_effect: true
+data:
+  classification: internal
+  output_trust: trusted
+retry:
+  mode: safe_only
+  max_attempts: 3
+compensate: none
+compensate_reason: Escalate to the domain owner; no safe automatic undo.
+verify:
+  capability: comms.get_slack_message@1
+  expect:
+    output: status
+    op: in
+    value:
+    - succeeded
+    - pending
+    - active
+    - paper_active
+  within: 30s
+  inputs:
+    idempotency_key: ${idempotency_key}

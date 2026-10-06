@@ -1,0 +1,196 @@
+{
+  "$defs": {
+    "Condition": {
+      "additionalProperties": false,
+      "description": "One condition: ``{parameter: amount_cents, op: lte, value: 20000}``.\n\n``value`` depends on ``op``:\n\n- ``eq``, ``ne``: a string, integer, boolean or null;\n- ``lt``, ``lte``, ``gt``, ``gte``: an integer or a string (ISO dates compare as strings);\n- ``in``, ``not_in``: a non-empty list of strings, integers, booleans or nulls;\n- ``matches``: a regular expression, matched against the whole input;\n- ``is_internal_domain``: ``true`` or ``false``.",
+      "properties": {
+        "parameter": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Parameter",
+          "type": "string"
+        },
+        "op": {
+          "$ref": "#/$defs/Op"
+        },
+        "value": {
+          "title": "Value"
+        }
+      },
+      "required": [
+        "parameter",
+        "op",
+        "value"
+      ],
+      "title": "Condition",
+      "type": "object"
+    },
+    "Op": {
+      "description": "The ten operators. That is the whole language; anything richer is a Cedar policy.",
+      "enum": [
+        "eq",
+        "ne",
+        "lt",
+        "lte",
+        "gt",
+        "gte",
+        "in",
+        "not_in",
+        "matches",
+        "is_internal_domain"
+      ],
+      "title": "Op",
+      "type": "string"
+    },
+    "RecipeApproval": {
+      "additionalProperties": false,
+      "properties": {
+        "pre_approvable": {
+          "default": false,
+          "title": "Pre Approvable",
+          "type": "boolean"
+        },
+        "covers_steps": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Covers Steps",
+          "type": "array"
+        },
+        "constraints": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Condition"
+          },
+          "title": "Constraints",
+          "type": "array"
+        }
+      },
+      "title": "RecipeApproval",
+      "type": "object"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "capability": {
+          "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+@[1-9][0-9]*$",
+          "title": "Capability",
+          "type": "string"
+        },
+        "inputs": {
+          "additionalProperties": true,
+          "title": "Inputs",
+          "type": "object"
+        },
+        "depends_on": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "sources": {
+          "additionalProperties": {
+            "enum": [
+              "user",
+              "trusted_output",
+              "untrusted_output",
+              "ai"
+            ],
+            "type": "string"
+          },
+          "title": "Sources",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "capability"
+      ],
+      "title": "Step",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "const": "copenhagen/v1",
+      "default": "copenhagen/v1",
+      "title": "Apiversion",
+      "type": "string"
+    },
+    "kind": {
+      "const": "Recipe",
+      "default": "Recipe",
+      "title": "Kind",
+      "type": "string"
+    },
+    "name": {
+      "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+$",
+      "title": "Name",
+      "type": "string"
+    },
+    "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "owner": {
+      "title": "Owner",
+      "type": "string"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "parameters": {
+      "additionalProperties": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Parameters",
+      "type": "object"
+    },
+    "on_failure": {
+      "default": "continue",
+      "enum": [
+        "continue",
+        "atomic"
+      ],
+      "title": "On Failure",
+      "type": "string"
+    },
+    "allow_event_trigger": {
+      "default": false,
+      "title": "Allow Event Trigger",
+      "type": "boolean"
+    },
+    "approval": {
+      "$ref": "#/$defs/RecipeApproval"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/Step"
+      },
+      "maxItems": 25,
+      "minItems": 1,
+      "title": "Steps",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name",
+    "version",
+    "owner",
+    "description",
+    "steps"
+  ],
+  "title": "RecipeSpec",
+  "type": "object"
+}

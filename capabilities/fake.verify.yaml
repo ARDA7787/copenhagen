@@ -1,0 +1,34 @@
+apiVersion: copenhagen/v1
+kind: Capability
+name: fake.verify
+version: 1
+status: active
+owner: team-fake
+summary: Fake verify
+inputs:
+  idempotency_key:
+    type: string
+outputs:
+  record_id:
+    type: string
+  status:
+    type: string
+executor:
+  adapter: fake
+  backend: fake
+  operation: get_effect
+  queue: fake
+risk:
+  class: read
+  reversible: false
+  external_effect: false
+data:
+  classification: internal
+  output_trust: trusted
+retry:
+  mode: safe_only
+  max_attempts: 3
+compensate: none
+compensate_reason: Escalate to the domain owner; no safe automatic undo.
+verify: none
+verify_reason: Read-only observation

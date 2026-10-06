@@ -1,0 +1,32 @@
+apiVersion: copenhagen/v1
+kind: Capability
+name: fake.write
+version: 1
+status: active
+owner: team-fake
+summary: Fake write
+inputs: {}
+outputs:
+  record_id:
+    type: string
+  status:
+    type: string
+executor:
+  adapter: fake
+  backend: fake
+  operation: write
+  queue: fake
+risk:
+  class: internal_write
+  reversible: false
+  external_effect: true
+data:
+  classification: internal
+  output_trust: trusted
+retry:
+  mode: safe_only
+  max_attempts: 3
+compensate: none
+compensate_reason: Escalate to the domain owner; no safe automatic undo.
+verify: none
+verify_reason: A human attests the recorded outcome

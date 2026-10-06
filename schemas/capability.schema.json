@@ -1,0 +1,524 @@
+{
+  "$defs": {
+    "Approval": {
+      "additionalProperties": false,
+      "properties": {
+        "approver_role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approver Role"
+        },
+        "unattended_when": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Condition"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unattended When"
+        },
+        "expires_after": {
+          "default": "48h",
+          "title": "Expires After",
+          "type": "string"
+        },
+        "on_expiry": {
+          "default": "needs_attention",
+          "enum": [
+            "needs_attention",
+            "fail_step"
+          ],
+          "title": "On Expiry",
+          "type": "string"
+        }
+      },
+      "title": "Approval",
+      "type": "object"
+    },
+    "Compensation": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+@[1-9][0-9]*$",
+          "title": "Capability",
+          "type": "string"
+        },
+        "inputs": {
+          "additionalProperties": true,
+          "title": "Inputs",
+          "type": "object"
+        }
+      },
+      "required": [
+        "capability"
+      ],
+      "title": "Compensation",
+      "type": "object"
+    },
+    "Condition": {
+      "additionalProperties": false,
+      "description": "One condition: ``{parameter: amount_cents, op: lte, value: 20000}``.\n\n``value`` depends on ``op``:\n\n- ``eq``, ``ne``: a string, integer, boolean or null;\n- ``lt``, ``lte``, ``gt``, ``gte``: an integer or a string (ISO dates compare as strings);\n- ``in``, ``not_in``: a non-empty list of strings, integers, booleans or nulls;\n- ``matches``: a regular expression, matched against the whole input;\n- ``is_internal_domain``: ``true`` or ``false``.",
+      "properties": {
+        "parameter": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Parameter",
+          "type": "string"
+        },
+        "op": {
+          "$ref": "#/$defs/Op"
+        },
+        "value": {
+          "title": "Value"
+        }
+      },
+      "required": [
+        "parameter",
+        "op",
+        "value"
+      ],
+      "title": "Condition",
+      "type": "object"
+    },
+    "Data": {
+      "additionalProperties": false,
+      "properties": {
+        "classification": {
+          "default": "internal",
+          "enum": [
+            "public",
+            "internal",
+            "confidential",
+            "restricted"
+          ],
+          "title": "Classification",
+          "type": "string"
+        },
+        "output_trust": {
+          "default": "trusted",
+          "enum": [
+            "trusted",
+            "untrusted"
+          ],
+          "title": "Output Trust",
+          "type": "string"
+        }
+      },
+      "title": "Data",
+      "type": "object"
+    },
+    "ExecutorSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {
+          "enum": [
+            "fake",
+            "http",
+            "human"
+          ],
+          "title": "Adapter",
+          "type": "string"
+        },
+        "backend": {
+          "title": "Backend",
+          "type": "string"
+        },
+        "operation": {
+          "title": "Operation",
+          "type": "string"
+        },
+        "queue": {
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Queue",
+          "type": "string"
+        },
+        "credential": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Credential"
+        },
+        "allowed_hosts": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Hosts",
+          "type": "array"
+        },
+        "timeout_seconds": {
+          "default": 30,
+          "maximum": 600,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "mode": {
+          "default": "immediate",
+          "enum": [
+            "immediate",
+            "webhook_callback"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "path_inputs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Path Inputs",
+          "type": "array"
+        },
+        "query_inputs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Query Inputs",
+          "type": "array"
+        },
+        "body_encoding": {
+          "default": "json",
+          "enum": [
+            "json",
+            "form"
+          ],
+          "title": "Body Encoding",
+          "type": "string"
+        },
+        "input_mapping": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Input Mapping",
+          "type": "object"
+        },
+        "output_mapping": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Output Mapping",
+          "type": "object"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "credential_header": {
+          "default": "Authorization",
+          "title": "Credential Header",
+          "type": "string"
+        },
+        "credential_prefix": {
+          "default": "Bearer ",
+          "title": "Credential Prefix",
+          "type": "string"
+        },
+        "poll_operation": {
+          "default": "GET /jobs/{job_id}",
+          "title": "Poll Operation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "adapter",
+        "backend",
+        "operation",
+        "queue"
+      ],
+      "title": "ExecutorSpec",
+      "type": "object"
+    },
+    "Op": {
+      "description": "The ten operators. That is the whole language; anything richer is a Cedar policy.",
+      "enum": [
+        "eq",
+        "ne",
+        "lt",
+        "lte",
+        "gt",
+        "gte",
+        "in",
+        "not_in",
+        "matches",
+        "is_internal_domain"
+      ],
+      "title": "Op",
+      "type": "string"
+    },
+    "Retry": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "default": "safe_only",
+          "enum": [
+            "safe_only",
+            "always",
+            "never"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "max_attempts": {
+          "default": 3,
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        }
+      },
+      "title": "Retry",
+      "type": "object"
+    },
+    "Risk": {
+      "additionalProperties": false,
+      "properties": {
+        "class": {
+          "enum": [
+            "read",
+            "internal_write",
+            "external_write",
+            "financial",
+            "identity",
+            "infrastructure",
+            "destructive",
+            "legal"
+          ],
+          "title": "Class",
+          "type": "string"
+        },
+        "reversible": {
+          "default": false,
+          "title": "Reversible",
+          "type": "boolean"
+        },
+        "external_effect": {
+          "default": false,
+          "title": "External Effect",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "class"
+      ],
+      "title": "Risk",
+      "type": "object"
+    },
+    "Verification": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+@[1-9][0-9]*$",
+          "title": "Capability",
+          "type": "string"
+        },
+        "expect": {
+          "$ref": "#/$defs/Condition"
+        },
+        "within": {
+          "default": "10m",
+          "title": "Within",
+          "type": "string"
+        },
+        "inputs": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputs"
+        }
+      },
+      "required": [
+        "capability",
+        "expect"
+      ],
+      "title": "Verification",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "const": "copenhagen/v1",
+      "default": "copenhagen/v1",
+      "title": "Apiversion",
+      "type": "string"
+    },
+    "kind": {
+      "const": "Capability",
+      "default": "Capability",
+      "title": "Kind",
+      "type": "string"
+    },
+    "name": {
+      "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+$",
+      "title": "Name",
+      "type": "string"
+    },
+    "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "status": {
+      "default": "active",
+      "enum": [
+        "draft",
+        "active",
+        "deprecated",
+        "disabled"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "owner": {
+      "minLength": 1,
+      "title": "Owner",
+      "type": "string"
+    },
+    "summary": {
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "inputs": {
+      "additionalProperties": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Inputs",
+      "type": "object"
+    },
+    "outputs": {
+      "additionalProperties": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Outputs",
+      "type": "object"
+    },
+    "executor": {
+      "$ref": "#/$defs/ExecutorSpec"
+    },
+    "risk": {
+      "$ref": "#/$defs/Risk"
+    },
+    "approval": {
+      "$ref": "#/$defs/Approval"
+    },
+    "idempotency": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Idempotency",
+      "type": "object"
+    },
+    "retry": {
+      "$ref": "#/$defs/Retry"
+    },
+    "verify": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Verification"
+        },
+        {
+          "const": "none",
+          "type": "string"
+        }
+      ],
+      "title": "Verify"
+    },
+    "verify_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Verify Reason"
+    },
+    "compensate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Compensation"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "title": "Compensate"
+    },
+    "compensate_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Compensate Reason"
+    },
+    "data": {
+      "$ref": "#/$defs/Data"
+    },
+    "examples": {
+      "default": [],
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Examples",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name",
+    "version",
+    "owner",
+    "summary",
+    "executor",
+    "risk",
+    "verify",
+    "compensate"
+  ],
+  "title": "CapabilitySpec",
+  "type": "object"
+}

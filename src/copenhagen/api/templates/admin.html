@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Workspace administration</h1>
+<p>Provision company identities, define permissions, and set operational limits.</p>
+<div class="two-columns">
+<section class="panel"><h2>Provision identity</h2><form method="post" action="/admin/principals">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label>Identifier<input name="id" required pattern="[a-zA-Z0-9_-]+"></label>
+<label>Company email<input name="email" type="email" required></label>
+<label>Identity type<select name="kind"><option value="user">Person (company sign-in)</option><option value="service">Service (API key or signed event)</option></select></label>
+<button>Create identity</button></form><h3>Provisioned identities</h3>
+{% for p in principals %}<p><strong>{{ p.id }}</strong> · {{ p.data.email }} · {{ p.status }}</p>{% endfor %}</section>
+<section class="panel"><h2>Define role</h2><form method="post" action="/admin/roles">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label>Role name<input name="name" required placeholder="operations"></label>
+<label>Capability patterns, comma-separated<input name="patterns" placeholder="company.read_*, company.update_record"></label>
+<small>Leave patterns empty for an approval-only role such as approver:operations.</small><button>Save role</button></form>
+<h2>Grant or revoke role</h2><form method="post" action="/admin/grants"><input type="hidden" name="csrf" value="{{ csrf }}">
+<label>Identity<select name="principal">{% for p in principals %}<option>{{ p.id }}</option>{% endfor %}</select></label>
+<label>Role<select name="role">{% for r in roles %}<option>{{ r.id }}</option>{% endfor %}</select></label>
+<label>Access<select name="enabled"><option value="true">Grant</option><option value="false">Revoke</option></select></label><button>Update access</button></form></section></div>
+<section class="panel"><h2>Operational configuration</h2><p>Set company domains, spending ceilings, daily limits, event sources, and the emergency kill switch. All changes are audited.</p>
+<form method="post" action="/admin/config"><input type="hidden" name="csrf" value="{{ csrf }}"><label>Configuration<textarea name="config" rows="18" required>{{ config|tojson(indent=2) }}</textarea></label><button>Save configuration</button></form></section>
+{% endblock %}

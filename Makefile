@@ -23,11 +23,11 @@ down: docker-ok ## Stop the stack (named volumes are kept)
 	$(COMPOSE) down
 
 dev: ## Run the API plus the control worker (Phase 1+)
-	@echo "Not yet: the API arrives in Phase 1 (P1-10)." >&2; exit 1
+	$(UV) run python scripts/dev.py
 
 worker: ## Run a domain worker: make worker Q=people (Phase 3+)
 	@test -n "$(Q)" || { echo "Usage: make worker Q=<queue>" >&2; exit 1; }
-	@echo "Not yet: domain workers arrive in Phase 3 (P3-12)." >&2; exit 1
+	$(UV) run copenhagen worker $(Q)
 
 check: ## Lint, format check, types, import rules, unit tests, .pth check (pre-commit runs this)
 	$(UV) run ruff check .
@@ -42,15 +42,18 @@ test: check ## Alias for check
 test-int: ## Integration tests against `make up` (Postgres, Temporal)
 	$(UV) run pytest -q -m integration
 
-e2e: ## End-to-end demo tests: make e2e PHASE=N (Phase 3+)
-	$(UV) run pytest -q -m e2e $(if $(PHASE),tests/e2e/test_phase_$(PHASE)_demo.py,)
+e2e: ## End-to-end operational tests against local infrastructure
+	$(UV) run pytest -q -m e2e
 
 demo: ## Seed and run the guided demo (Milestone A)
-	@echo "Not yet: the guided demo arrives in Phase 4 (P4-15)." >&2; exit 1
+	$(UV) run copenhagen dev demo
 
 fmt: ## Auto-fix lint and format
 	$(UV) run ruff check --fix .
 	$(UV) run ruff format .
 
 migrate: ## Apply database migrations (Phase 1+)
-	@echo "Not yet: Alembic arrives in Phase 1 (P1-07)." >&2; exit 1
+	$(UV) run alembic upgrade head
+
+seed: ## Seed development personas, capabilities and business runbooks
+	$(UV) run copenhagen dev seed

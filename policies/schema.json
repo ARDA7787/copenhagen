@@ -1,0 +1,164 @@
+{
+  "": {
+    "entityTypes": {
+      "Principal": {
+        "shape": {
+          "type": "Record",
+          "attributes": {}
+        }
+      },
+      "Capability": {
+        "shape": {
+          "type": "Record",
+          "attributes": {}
+        }
+      }
+    },
+    "actions": {
+      "invoke": {
+        "appliesTo": {
+          "principalTypes": [
+            "Principal"
+          ],
+          "resourceTypes": [
+            "Capability"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {
+              "role_permitted": {
+                "type": "Boolean"
+              },
+              "same_tenant": {
+                "type": "Boolean"
+              },
+              "enabled": {
+                "type": "Boolean"
+              },
+              "approver_allowed": {
+                "type": "Boolean"
+              },
+              "amount_cents": {
+                "type": "Long"
+              },
+              "money_ceiling": {
+                "type": "Long"
+              },
+              "risk_class": {
+                "type": "String"
+              }
+            }
+          }
+        }
+      },
+      "invoke_unattended": {
+        "appliesTo": {
+          "principalTypes": [
+            "Principal"
+          ],
+          "resourceTypes": [
+            "Capability"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {
+              "role_permitted": {
+                "type": "Boolean"
+              },
+              "same_tenant": {
+                "type": "Boolean"
+              },
+              "enabled": {
+                "type": "Boolean"
+              },
+              "approver_allowed": {
+                "type": "Boolean"
+              },
+              "amount_cents": {
+                "type": "Long"
+              },
+              "money_ceiling": {
+                "type": "Long"
+              },
+              "risk_class": {
+                "type": "String"
+              }
+            }
+          }
+        }
+      },
+      "approve": {
+        "appliesTo": {
+          "principalTypes": [
+            "Principal"
+          ],
+          "resourceTypes": [
+            "Capability"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {
+              "role_permitted": {
+                "type": "Boolean"
+              },
+              "same_tenant": {
+                "type": "Boolean"
+              },
+              "enabled": {
+                "type": "Boolean"
+              },
+              "approver_allowed": {
+                "type": "Boolean"
+              },
+              "amount_cents": {
+                "type": "Long"
+              },
+              "money_ceiling": {
+                "type": "Long"
+              },
+              "risk_class": {
+                "type": "String"
+              }
+            }
+          }
+        }
+      },
+      "publish": {
+        "appliesTo": {
+          "principalTypes": [
+            "Principal"
+          ],
+          "resourceTypes": [
+            "Capability"
+          ],
+          "context": {
+            "type": "Record",
+            "attributes": {
+              "role_permitted": {
+                "type": "Boolean"
+              },
+              "same_tenant": {
+                "type": "Boolean"
+              },
+              "enabled": {
+                "type": "Boolean"
+              },
+              "approver_allowed": {
+                "type": "Boolean"
+              },
+              "amount_cents": {
+                "type": "Long"
+              },
+              "money_ceiling": {
+                "type": "Long"
+              },
+              "risk_class": {
+                "type": "String"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

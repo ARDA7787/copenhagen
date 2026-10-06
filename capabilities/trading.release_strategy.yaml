@@ -1,0 +1,59 @@
+apiVersion: copenhagen/v1
+kind: Capability
+name: trading.release_strategy
+version: 1
+status: active
+owner: team-trading
+summary: Trading release strategy
+inputs:
+  strategy_id:
+    type: string
+    sensitive: true
+  mode:
+    type: string
+    enum:
+    - paper
+  amount_cents:
+    type: integer
+    minimum: 1
+    sensitive: true
+    unit: cents
+outputs:
+  release_id:
+    type: string
+  status:
+    type: string
+executor:
+  adapter: http
+  backend: trading
+  operation: POST /operations/trading_release
+  queue: trading
+  allowed_hosts:
+  - trading.example.com
+risk:
+  class: financial
+  reversible: false
+  external_effect: true
+data:
+  classification: confidential
+  output_trust: trusted
+retry:
+  mode: safe_only
+  max_attempts: 3
+compensate: none
+compensate_reason: Escalate to the domain owner; no safe automatic undo.
+verify:
+  capability: trading.get_release@1
+  expect:
+    output: status
+    op: in
+    value:
+    - succeeded
+    - pending
+    - active
+    - paper_active
+  within: 30s
+  inputs:
+    idempotency_key: ${idempotency_key}
+approval:
+  approver_role: approver:trading

@@ -1,0 +1,51 @@
+apiVersion: copenhagen/v1
+kind: Capability
+name: comms.send_welcome_email
+version: 1
+status: active
+owner: team-comms
+summary: Comms send welcome email
+inputs:
+  to:
+    type: string
+    format: email
+    sensitive: true
+  team:
+    type: string
+outputs:
+  record_id:
+    type: string
+  status:
+    type: string
+executor:
+  adapter: http
+  backend: email
+  operation: POST /operations/send_welcome_email
+  queue: comms
+  allowed_hosts:
+  - email.example.com
+risk:
+  class: external_write
+  reversible: false
+  external_effect: true
+data:
+  classification: internal
+  output_trust: trusted
+retry:
+  mode: safe_only
+  max_attempts: 3
+compensate: none
+compensate_reason: Escalate to the domain owner; no safe automatic undo.
+verify:
+  capability: comms.get_welcome_email@1
+  expect:
+    output: status
+    op: in
+    value:
+    - succeeded
+    - pending
+    - active
+    - paper_active
+  within: 30s
+  inputs:
+    idempotency_key: ${idempotency_key}

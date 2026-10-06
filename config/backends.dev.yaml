@@ -1,0 +1,10 @@
+customers: http://localhost:8010
+email: http://localhost:8010
+github: http://localhost:8010
+google: http://localhost:8010
+payroll: http://localhost:8010
+platform: http://localhost:8010
+shop: http://localhost:8010
+slack: http://localhost:8010
+stripe: http://localhost:8010
+trading: http://localhost:8010

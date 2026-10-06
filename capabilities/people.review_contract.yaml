@@ -1,0 +1,35 @@
+apiVersion: copenhagen/v1
+kind: Capability
+name: people.review_contract
+version: 1
+status: active
+owner: team-people
+summary: People review contract
+inputs:
+  contract_id:
+    type: string
+    sensitive: true
+outputs:
+  document_ref:
+    type: string
+executor:
+  adapter: human
+  backend: people
+  operation: Review the contract and record the signed document reference
+  queue: people
+risk:
+  class: legal
+  reversible: false
+  external_effect: true
+data:
+  classification: internal
+  output_trust: trusted
+retry:
+  mode: safe_only
+  max_attempts: 3
+compensate: none
+compensate_reason: Escalate to the domain owner; no safe automatic undo.
+verify: none
+verify_reason: A human attests the recorded outcome
+approval:
+  approver_role: approver:people

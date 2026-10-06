@@ -1,0 +1,29 @@
+apiVersion: copenhagen/v1
+kind: Recipe
+version: 1
+owner: operations
+on_failure: continue
+name: trading.release_paper_strategy
+description: Release a paper trading strategy after an independent capital-limit approval.
+parameters:
+  strategy_id:
+    type: string
+  amount_cents:
+    type: integer
+    minimum: 1
+    maximum: 500000
+    unit: cents
+steps:
+- id: release
+  capability: trading.release_strategy@1
+  inputs:
+    strategy_id: '{{strategy_id}}'
+    mode: paper
+    amount_cents: '{{amount_cents}}'
+- id: announce
+  capability: comms.post_slack_message@1
+  inputs:
+    channel: trading-ops
+    text: Paper strategy {{strategy_id}} released
+  depends_on:
+  - release

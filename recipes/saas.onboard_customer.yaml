@@ -1,0 +1,47 @@
+apiVersion: copenhagen/v1
+kind: Recipe
+version: 1
+owner: operations
+on_failure: continue
+name: saas.onboard_customer
+description: Register a B2B customer, provision their workspace and send a welcome.
+parameters:
+  company:
+    type: string
+  owner_email:
+    type: string
+    format: email
+    sensitive: true
+  plan:
+    type: string
+    enum:
+    - starter
+    - growth
+approval:
+  pre_approvable: true
+  covers_steps:
+  - workspace
+  constraints:
+  - parameter: plan
+    op: eq
+    value: starter
+steps:
+- id: customer
+  capability: customers.create_customer@1
+  inputs:
+    company: '{{company}}'
+    owner_email: '{{owner_email}}'
+- id: workspace
+  capability: customers.provision_workspace@1
+  inputs:
+    customer_id: ${customer.outputs.customer_id}
+    plan: '{{plan}}'
+  depends_on:
+  - customer
+- id: welcome
+  capability: comms.send_customer_email@1
+  inputs:
+    to: '{{owner_email}}'
+    template: saas_welcome
+  depends_on:
+  - workspace

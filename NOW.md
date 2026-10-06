@@ -1,5 +1,3 @@
-# NOW
-
-- **Current task:** Phase 1 — P1-02 `core/conditions.py`: the 10 operators, strict types, three-valued result (`docs/plan/phase-1.md`)
-- **Next task:** P1-03 `core/schema.py`
-- **Blocker:** none
+- **Current task:** Milestone A core implementation and operational acceptance verified.
+- **Next task:** Connect a company's OIDC and backend accounts and validate its first live runbook.
+- **Blocker:** Live credentials and the month-long design-partner adoption criterion are external acceptance work.

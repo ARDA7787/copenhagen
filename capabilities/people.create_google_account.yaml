@@ -1,0 +1,53 @@
+apiVersion: copenhagen/v1
+kind: Capability
+name: people.create_google_account
+version: 1
+status: active
+owner: team-people
+summary: People create google account
+inputs:
+  full_name:
+    type: string
+    minLength: 1
+  recovery_email:
+    type: string
+    format: email
+    sensitive: true
+outputs:
+  work_email:
+    type: string
+    format: email
+  status:
+    type: string
+executor:
+  adapter: http
+  backend: google
+  operation: POST /operations/create_google_account
+  queue: people
+  allowed_hosts:
+  - admin.googleapis.com
+risk:
+  class: identity
+  reversible: false
+  external_effect: true
+data:
+  classification: confidential
+  output_trust: trusted
+retry:
+  mode: safe_only
+  max_attempts: 3
+compensate: none
+compensate_reason: Escalate to the domain owner; no safe automatic undo.
+verify:
+  capability: people.get_google_account@1
+  expect:
+    output: status
+    op: in
+    value:
+    - succeeded
+    - pending
+    - active
+    - paper_active
+  within: 30s
+  inputs:
+    idempotency_key: ${idempotency_key}

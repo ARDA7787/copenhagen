@@ -1,0 +1,31 @@
+apiVersion: copenhagen/v1
+kind: Recipe
+version: 1
+owner: operations
+on_failure: continue
+name: commerce.refund_order
+description: Find the order, refund the resolved amount, verify, and notify the customer.
+parameters:
+  order_id:
+    type: string
+steps:
+- id: order
+  capability: shop.get_order@1
+  inputs:
+    order_id: '{{order_id}}'
+- id: refund
+  capability: payments.refund@1
+  inputs:
+    payment_id: ${order.outputs.payment_id}
+    amount_cents: ${order.outputs.total_cents}
+    reason: duplicate
+  depends_on:
+  - order
+- id: email
+  capability: comms.send_customer_email@1
+  inputs:
+    to: ${order.outputs.customer_email}
+    template: refund_issued
+  depends_on:
+  - order
+  - refund

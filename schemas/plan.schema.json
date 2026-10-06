@@ -1,0 +1,115 @@
+{
+  "$defs": {
+    "Step": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "capability": {
+          "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+@[1-9][0-9]*$",
+          "title": "Capability",
+          "type": "string"
+        },
+        "inputs": {
+          "additionalProperties": true,
+          "title": "Inputs",
+          "type": "object"
+        },
+        "depends_on": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "sources": {
+          "additionalProperties": {
+            "enum": [
+              "user",
+              "trusted_output",
+              "untrusted_output",
+              "ai"
+            ],
+            "type": "string"
+          },
+          "title": "Sources",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "capability"
+      ],
+      "title": "Step",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "plan_version": {
+      "const": 2,
+      "default": 2,
+      "title": "Plan Version",
+      "type": "integer"
+    },
+    "summary": {
+      "default": "",
+      "title": "Summary",
+      "type": "string"
+    },
+    "on_failure": {
+      "default": "continue",
+      "enum": [
+        "continue",
+        "atomic"
+      ],
+      "title": "On Failure",
+      "type": "string"
+    },
+    "questions": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Questions",
+      "type": "array"
+    },
+    "missing": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing",
+      "type": "array"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/Step"
+      },
+      "maxItems": 25,
+      "minItems": 1,
+      "title": "Steps",
+      "type": "array"
+    },
+    "rationale": {
+      "default": [],
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Rationale",
+      "type": "array"
+    }
+  },
+  "required": [
+    "steps"
+  ],
+  "title": "PlanIR",
+  "type": "object"
+}
