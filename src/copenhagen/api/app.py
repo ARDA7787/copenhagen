@@ -48,7 +48,9 @@ from copenhagen.db.models import (
 )
 from copenhagen.db.store import connect, get, lock, put, rows, transaction
 from copenhagen.engine.client import RunEngine, TemporalEngine
-from copenhagen.engine.dispatch import Dispatcher, enqueue
+from copenhagen.engine.dispatch import Dispatcher, enqueue, outstanding, requeue
+from copenhagen.engine.reconcile import Reconciler
+from copenhagen.notify import build as build_notifier
 from copenhagen.registry.publish import capability, catalog, publish, recipe, set_status
 from copenhagen.service import Service
 from copenhagen.settings import Settings
@@ -69,16 +71,36 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         delivery = Dispatcher(
-            database, service.tenant, run_engine or await TemporalEngine.connect(settings)
+            database,
+            service.tenant,
+            run_engine or await TemporalEngine.connect(settings),
+            notifier=build_notifier(
+                settings.notify_webhook_url,
+                settings.notify_webhook_secret,
+                allow_insecure=settings.env != "prod",
+            ),
         )
         app.state.run_engine = delivery
-        dispatcher = asyncio.create_task(delivery.run())
+        background = [asyncio.create_task(delivery.run())]
+        lookup = getattr(delivery.engine, "status", None)
+        if lookup is not None:
+            reconciler = Reconciler(
+                database,
+                service.tenant,
+                lookup,
+                public_url=settings.public_url,
+                interval=settings.reconcile_minutes * 60,
+            )
+            app.state.reconciler = reconciler
+            background.append(asyncio.create_task(reconciler.run()))
         try:
             yield
         finally:
-            dispatcher.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await dispatcher
+            for task in background:
+                task.cancel()
+            for task in background:
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
             if db is None:
                 database.dispose()
 
@@ -685,6 +707,32 @@ def create_app(
     def define_role_api(request: Request, body: RoleInput):
         define_role(service, admin(request), body)
         return {"updated": True}
+
+    @app.get("/v1/admin/outbox")
+    def outbox_api(request: Request, status: str = "dead"):
+        admin(request)
+        if status not in {"dead", "pending"}:
+            raise HTTPException(400, "status must be dead or pending")
+        with transaction(database) as session:
+            return outstanding(session, service.tenant, status)
+
+    @app.post("/v1/admin/outbox/{id_}/requeue")
+    def requeue_api(request: Request, id_: str):
+        actor = admin(request)
+        try:
+            with transaction(database) as session:
+                requeue(session, service.tenant, id_, actor)
+        except LookupError as error:
+            raise HTTPException(404, str(error)) from error
+        return {"requeued": True}
+
+    @app.post("/v1/admin/reconcile")
+    async def reconcile_api(request: Request):
+        admin(request)
+        reconciler = getattr(request.app.state, "reconciler", None)
+        if reconciler is None:
+            raise HTTPException(409, "run engine does not support reconciliation")
+        return {"closed": await reconciler.once()}
 
     @app.get("/v1/admin/config")
     def get_config_api(request: Request):

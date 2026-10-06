@@ -107,6 +107,19 @@ retain reservations; investigate them before changing limits. The PRD limits pla
 - A confirmed run is committed with its outbox message. API restart automatically resumes
   pending delivery. A workflow ID cannot be restarted accidentally. Workflow history,
   not in-process memory, owns progress and approval waits.
+- Outbox delivery is per-run ordered and safe across several API instances. Transient
+  failures (Temporal unavailable) back off exponentially up to five minutes. Permanent
+  failures, or more than 50 attempts, move the message to `dead`, mark the run
+  `needs_attention` and write a `dispatch.dead_lettered` audit event. List dead messages
+  with `GET /v1/admin/outbox` and requeue one with
+  `POST /v1/admin/outbox/{id}/requeue` after fixing the cause.
+- A reconciler runs every `RECONCILE_MINUTES`. It closes runs whose Temporal workflow
+  ended or vanished without recording a result (status `failed`, audit `run.orphaned`)
+  and expires their open approvals and tasks. Trigger a pass with
+  `POST /v1/admin/reconcile`.
+- Approvers and task owners are notified through `NOTIFY_WEBHOOK_URL` (signed with
+  `NOTIFY_WEBHOOK_SECRET`, HTTPS in production). Notifications are queued in the same
+  transaction as the approval, retried by the outbox, and never carry step inputs.
 - For a failed step, investigate its reason, then use **Retry safely**, **Skip** with a
   reason, or **Cancel**. An uncertain write must be verified absent before it is invoked
   again. Cancellation does not reverse completed work unless explicitly requested.
