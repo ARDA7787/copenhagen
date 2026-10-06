@@ -34,6 +34,7 @@ from copenhagen.db.models import (
 from copenhagen.db.store import get, lock, new_id, put, rows, transaction
 from copenhagen.engine.contracts import RunEnvelope
 from copenhagen.engine.dispatch import enqueue
+from copenhagen.notify import notification
 from copenhagen.policy.engine import PolicyEngine
 from copenhagen.policy.identity import principal
 from copenhagen.policy.preapproval import preapprove, valid_preapproval
@@ -298,6 +299,8 @@ class Service:
                 raise ValueError("approval already decided")
             if data["requester_id"] == actor:
                 raise ValueError("requesters cannot approve their own request (I6)")
+            if approved and data.get("edited_by") == actor:
+                raise ValueError("an independent approver must review your edit")
             if not set(data["required_roles"]) <= set(identity.roles):
                 raise ValueError("required approver role is missing")
             if datetime.now(UTC) >= datetime.fromisoformat(data["expires_at"]):
@@ -330,6 +333,53 @@ class Service:
                 raise ValueError("policy denies these resolved inputs; approval cannot override it")
             if not reason.strip():
                 raise ValueError("approval decision requires a reason")
+            changed = sorted(k for k, v in (edits or {}).items() if data["inputs"].get(k) != v)
+            if approved and changed and data["risk_class"] in HIGH_RISK:
+                # Changing a high-risk request makes it a new request. Whoever changed it
+                # cannot also approve it, so it goes back to the queue for someone else.
+                item.data = {
+                    **data,
+                    "inputs": values,
+                    "sources": origin,
+                    "inputs_hash": inputs_hash(values),
+                    "edited_by": actor,
+                    "edited_fields": changed,
+                    "edit_reason": reason,
+                }
+                append(
+                    session,
+                    self.tenant,
+                    f"{id_}:edited:{inputs_hash(values)}",
+                    "approval.edited",
+                    principal_id=actor,
+                    run_id=data["run_id"],
+                    step_id=data["step_id"],
+                    inputs_hash=inputs_hash(values),
+                    fields=changed,
+                )
+                enqueue(
+                    session,
+                    self.tenant,
+                    f"notify:{id_}:edited:{inputs_hash(values)}",
+                    None,
+                    "notify",
+                    notification(
+                        "approval.requested",
+                        tenant=self.tenant,
+                        subject=f"Edited request needs independent review: {data['capability']}",
+                        public_url=self.settings.public_url,
+                        id=id_,
+                        run_id=data["run_id"],
+                        step_id=data["step_id"],
+                        edited_by=actor,
+                    ),
+                )
+                return {
+                    "id": id_,
+                    "step_id": data["step_id"],
+                    "run_id": data["run_id"],
+                    "status": "pending_review",
+                }
             item.status = "approved" if approved else "rejected"
             item.data = {
                 **data,
@@ -460,10 +510,14 @@ class Service:
         if actor == target and role == "admin" and not enabled:
             raise ValueError("another administrator must revoke your administrator access")
         with transaction(self.engine) as session:
+            lock(session, f"roles:{self.tenant}")
             if "admin" not in self.identity(session, actor).roles:
                 raise ValueError("administrator role required")
             self.identity(session, target)
             get(session, Role, self.tenant, role)
+            if actor == target and enabled and self._other_admins(session, actor):
+                # With a second administrator available, nobody grants themselves power.
+                raise ValueError("another administrator must grant you this role")
             put(
                 session,
                 PrincipalRole,
@@ -483,10 +537,34 @@ class Service:
                 enabled=enabled,
             )
 
-    def issue_key(self, actor: str, scopes: list[str], hours: int = 24) -> str:
+    def _other_admins(self, session: Session, actor: str) -> bool:
+        for link in rows(session, PrincipalRole, self.tenant):
+            if (
+                link.status == "active"
+                and link.data["role"] == "admin"
+                and link.data["principal_id"] != actor
+                and self.identity(session, link.data["principal_id"]).status == "active"
+            ):
+                return True
+        return False
+
+    def issue_key(
+        self,
+        actor: str,
+        scopes: list[str],
+        hours: int = 24,
+        *,
+        not_after: datetime | None = None,
+    ) -> str:
+        """Issue an API key. ``not_after`` caps expiry, so a key minted by another key
+        can never outlive it and a leaked key cannot renew itself indefinitely."""
+
         allowed = {"read", "run", "approve", "admin"}
         if not scopes or not set(scopes) <= allowed or not 1 <= hours <= 720:
             raise ValueError("invalid key scopes or expiry")
+        expires = datetime.now(UTC) + timedelta(hours=hours)
+        if not_after is not None:
+            expires = min(expires, not_after)
         with transaction(self.engine) as session:
             identity = self.identity(session, actor)
             if identity.status != "active":
@@ -504,8 +582,9 @@ class Service:
                 {
                     "principal_id": actor,
                     "scopes": scopes,
-                    "expires_at": (datetime.now(UTC) + timedelta(hours=hours)).isoformat(),
+                    "expires_at": expires.isoformat(),
                     "key_id": id_,
+                    "parent": "key" if not_after is not None else "session",
                 },
             )
             append(session, self.tenant, id_, "api_key.issued", principal_id=actor, scopes=scopes)

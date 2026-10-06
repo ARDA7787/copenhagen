@@ -5,7 +5,7 @@ from typing import Any, cast
 from copenhagen.core.capability import CapabilitySpec, Source
 from copenhagen.core.identity import Principal, RunContext
 from copenhagen.core.plan import REF, PlanIR, Step, walk_values
-from copenhagen.core.schema import object_schema
+from copenhagen.core.schema import money_values, object_schema
 from copenhagen.policy.engine import PolicyEngine
 
 
@@ -94,8 +94,8 @@ def validate(
         decision = policy.decide(
             principal, cap, step.inputs, origin, ctx.model_copy(update={"step_id": step.id})
         )
-        if type(step.inputs.get("amount_cents")) is int and cap.risk.class_ == "financial":
-            money += step.inputs["amount_cents"]
+        if cap.risk.class_ == "financial":
+            money += sum(abs(v) for v in money_values(cap.inputs, step.inputs) if type(v) is int)
         if not cap.risk.reversible and cap.risk.class_ != "read" and index < len(plan.steps) - 1:
             warnings.append(
                 f"{step.id}: irreversible operation before later steps; review ordering"

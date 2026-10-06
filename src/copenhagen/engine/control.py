@@ -18,7 +18,7 @@ from copenhagen.core.canonical import idempotency_key, inputs_hash
 from copenhagen.core.capability import duration_seconds
 from copenhagen.core.identity import Decision, RunContext
 from copenhagen.core.plan import PlanIR
-from copenhagen.core.schema import validate_values
+from copenhagen.core.schema import money_values, validate_values
 from copenhagen.db.models import Approval, HumanTask, Plan, Run, StepRun, Tenant
 from copenhagen.db.store import get, put, rows, transaction
 from copenhagen.engine.contracts import ControlArgs, ControlResult
@@ -170,7 +170,9 @@ class ControlActivities:
                 key = f"{args.run_id}:{args.step_id}:{h}"
                 if decision.outcome == "allow" and cap.risk.class_ != "read":
                     cost = {
-                        "money_cents": args.inputs.get("amount_cents", 0)
+                        "money_cents": sum(
+                            abs(v) for v in money_values(cap.inputs, args.inputs) if type(v) is int
+                        )
                         if cap.risk.class_ == "financial"
                         else 0,
                         "messages": int(cap.executor.queue == "comms"),

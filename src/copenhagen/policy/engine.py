@@ -14,7 +14,7 @@ from copenhagen.core.capability import CapabilitySpec, Source
 from copenhagen.core.conditions import Truth, evaluate_all
 from copenhagen.core.identity import Decision, Principal, RunContext
 from copenhagen.core.plan import REF, walk_values
-from copenhagen.core.schema import is_sensitive
+from copenhagen.core.schema import is_sensitive, money_values
 
 POLICY_DIR = Path(str(files("copenhagen.policy"))) / "defaults"
 
@@ -119,13 +119,16 @@ class PolicyEngine:
             )
         if ctx.budget_exceeded:
             return decision("deny", "usage budget exceeded")
-        amount = values.get("amount_cents", 0)
         unresolved = any(isinstance(v, str) and REF.fullmatch(v) for v in walk_values(values))
+        money = money_values(cap.inputs, values)
+        if any(type(v) is not int and not (isinstance(v, str) and REF.fullmatch(v)) for v in money):
+            return decision("deny", "money fields must be integer minor units")
+        amount = sum(abs(v) for v in money if type(v) is int)
         cedar_context = {
             "role_permitted": granted,
             "same_tenant": True,
             "enabled": not ctx.kill_switch,
-            "amount_cents": amount if type(amount) is int else 0,
+            "amount_cents": amount,
             "money_ceiling": ctx.money_ceiling,
             "risk_class": cap.risk.class_,
             "approver_allowed": False,
@@ -134,8 +137,6 @@ class PolicyEngine:
             return decision(
                 "deny", "Cedar policy denied invocation (hard ceiling or tenant restriction)"
             )
-        if cap.risk.class_ == "financial" and type(amount) is not int and not unresolved:
-            return decision("deny", "financial amount must be integer cents")
         needs = cap.risk.class_ in {"identity", "infrastructure", "destructive", "legal"}
         reasons: list[str] = ["risk class requires independent approval"] if needs else []
         unknown = False
@@ -197,7 +198,9 @@ class PolicyEngine:
                 "enabled": principal.status == "active" and not ctx.kill_switch,
                 "approver_allowed": True,
                 "risk_class": cap.risk.class_,
-                "amount_cents": inputs.get("amount_cents", 0),
+                "amount_cents": sum(
+                    abs(v) for v in money_values(cap.inputs, inputs) if type(v) is int
+                ),
                 "money_ceiling": ctx.money_ceiling,
             },
         )

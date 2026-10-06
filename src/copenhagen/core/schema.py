@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from jsonschema import Draft202012Validator, FormatChecker
 
@@ -35,6 +35,57 @@ KEYWORDS = frozenset(
     }
 )
 TYPES = frozenset({"string", "integer", "boolean", "object", "array", "null"})
+# Money is an integer count of the tenant currency's minor units. ``amount_cents`` without
+# a unit is still read as money so older capabilities keep their ceiling.
+MONEY_UNITS = frozenset({"cents"})
+LEGACY_MONEY_FIELD = "amount_cents"
+
+
+def is_money(name: str | None, spec: dict[str, Any]) -> bool:
+    return spec.get("type") == "integer" and (
+        spec.get("unit") in MONEY_UNITS or (name == LEGACY_MONEY_FIELD and "unit" not in spec)
+    )
+
+
+def money_paths(fields: FieldMap) -> list[str]:
+    """Dotted paths of every declared money field (``[]`` marks array items)."""
+
+    found: list[str] = []
+
+    def walk(path: str, name: str | None, spec: dict[str, Any]) -> None:
+        if is_money(name, spec):
+            found.append(path)
+        for key, child in spec.get("properties", {}).items():
+            walk(f"{path}.{key}", key, child)
+        if spec.get("type") == "array":
+            walk(f"{path}[]", None, spec.get("items", {}))
+
+    for name, spec in fields.items():
+        walk(name, name, spec)
+    return found
+
+
+def money_values(fields: FieldMap, values: dict[str, Any]) -> list[Any]:
+    """Every value supplied for a declared money field, including nested and array items."""
+
+    found: list[Any] = []
+
+    def walk(name: str | None, spec: dict[str, Any], value: Any) -> None:
+        if value is None:
+            return
+        if is_money(name, spec):
+            found.append(value)
+        if isinstance(value, dict):
+            mapping = cast(dict[str, Any], value)
+            for key, child in spec.get("properties", {}).items():
+                walk(key, child, mapping.get(key))
+        if isinstance(value, list) and spec.get("type") == "array":
+            for item in cast(list[Any], value):
+                walk(None, spec.get("items", {}), item)
+
+    for name, spec in fields.items():
+        walk(name, spec, values.get(name))
+    return found
 
 
 def is_sensitive(spec: dict[str, Any]) -> bool:
@@ -60,6 +111,10 @@ def check_schema(spec: dict[str, Any], *, top: bool = False) -> None:
         raise ValueError("each field needs a supported type (numbers use integer units)")
     if "sensitive" in spec and type(spec["sensitive"]) is not bool:
         raise ValueError("sensitive must be boolean")
+    if "unit" in spec and not isinstance(spec["unit"], str):
+        raise ValueError("unit must be a string")
+    if spec.get("unit") in MONEY_UNITS and spec["type"] != "integer":
+        raise ValueError("money fields must be integers in minor units")
     if isinstance(spec.get("pattern"), str):
         check_safe_pattern(spec["pattern"])
     if top and "required" in spec and type(spec["required"]) is not bool:

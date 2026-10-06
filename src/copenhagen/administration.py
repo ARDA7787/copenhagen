@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import EmailStr, Field
 
 from copenhagen.audit.chain import append
-from copenhagen.core.capability import Spec
+from copenhagen.core.capability import RiskClass, Spec
 from copenhagen.db.models import Principal, PrincipalRole, Role, Tenant
 from copenhagen.db.store import get, lock, new_id, put, rows, transaction
 from copenhagen.service import Service
@@ -31,6 +31,11 @@ class TenantConfig(Spec, frozen=True):
     daily_messages: int = Field(default=1000, ge=0, strict=True)
     daily_records: int = Field(default=10000, ge=0, strict=True)
     hooks: dict[str, "HookConfig"] = Field(default_factory=dict)
+    # Minimum risk class by capability name pattern, e.g. ``{"payments.*": "financial"}``.
+    risk_floors: dict[str, RiskClass] = Field(default_factory=dict)
+    # Extra risk classes whose publication needs an independent second reviewer. High-risk
+    # classes always need one; this list can only add to them.
+    review_required: list[RiskClass] = Field(default_factory=list)
 
 
 class HookConfig(Spec, frozen=True):

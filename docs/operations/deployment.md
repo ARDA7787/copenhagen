@@ -100,6 +100,23 @@ and shared across concurrent runs, principals and capabilities. Uncertain side e
 retain reservations; investigate them before changing limits. The PRD limits plans to
 25 steps and execution to four ready steps per run.
 
+## Governance controls
+
+- API keys minted with an API key can never outlive or out-scope their parent.
+  `GET /v1/api-keys` lists key metadata (never secrets); administrators see every
+  principal's keys and can revoke any of them with `POST /v1/api-keys/{id}/revoke`.
+- Editing the inputs of a high-risk approval does not approve it. The edited request
+  is re-hashed, re-checked against policy and ceilings, and sent back to the queue;
+  a different approver must decide it.
+- An administrator cannot grant themselves roles while another administrator exists.
+- Money ceilings apply to every integer field declared with `"unit": "cents"` (and
+  the legacy `amount_cents` name), including nested objects and array items.
+- Tenant config `risk_floors` (`{"payments.*": "financial"}`) stops a capability
+  from being published under a weaker risk class than its name implies, and
+  `review_required` adds risk classes that need a second reviewer.
+- Webhook sources sign with `COPENHAGEN_HOOK_SECRET_<SOURCE>`. Production refuses a
+  source without its own secret instead of falling back to a shared one.
+
 ## Recovery and audit
 
 - `GET /healthz` verifies the API's database connection. Inspect Temporal worker health
