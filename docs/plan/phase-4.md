@@ -13,7 +13,7 @@ New tech: cedarpy, Authlib, Keycloak (opt-in profile).
 
 ## Checklist
 
-- [ ] P4-01 One-day cedarpy spike (`spikes/cedar/`): go, or fall back to the sidecar (plan B)
+- [x] P4-01 One-day cedarpy spike (`spikes/cedar/`): go, or fall back to the sidecar (plan B) — **go**, see `docs/spikes/02-cedar.md`
 - [x] P4-02 Migration `0003`: `api_keys`, `sessions`, `recipe_preapprovals`, `usage_counters`;
       principals and roles move to Postgres; `copenhagen dev seed`
 - [ ] P4-03 OIDC with Authlib (Keycloak profile; Google documented); server-side sessions
