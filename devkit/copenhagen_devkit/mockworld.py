@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from copenhagen.adapters.fake import World
+from copenhagen_devkit.fake import World
 
 
 def create_app(path: str = ".data/mockworld.sqlite") -> FastAPI:

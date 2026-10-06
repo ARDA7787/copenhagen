@@ -86,8 +86,11 @@ uv run copenhagen audit check
 uv run copenhagen audit export audit.jsonl
 ```
 
-The example files in `capabilities/` and `recipes/`, `mockworld`, and `dev seed` are
-optional development fixtures. They do not establish compatibility with vendor accounts.
-Production rejects fake adapters and development identity/backend overrides.
+The shipped package (`src/copenhagen`) contains no personas, demo data, or simulator.
+Example capabilities, recipes and backend config live in `examples/`, and the simulator,
+fake adapter and seed data live in the separate development kit (`devkit/copenhagen_devkit`,
+run with `uv run python -m copenhagen_devkit --help`). None of these show that the product
+works with real vendor accounts. Production refuses development-only adapters and
+development identity/backend overrides.
 Saved-plan infrastructure adapters, external audit anchoring, AI planning, and enterprise
 multi-tenancy remain in their later PRD phases.

@@ -50,7 +50,7 @@ packages = ["src/copenhagen"]
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-src = ["src", "tests", "spikes"]
+src = ["src", "devkit", "tests", "spikes"]
 # Ruff also formats code blocks in Markdown; the PRD and docs are prose, never reformatted.
 extend-exclude = ["*.md"]
 
@@ -63,11 +63,12 @@ ignore = ["S101"]  # assert is fine in tests and spikes
 "spikes/**" = ["S"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["copenhagen", "spikes", "scripts"]
+known-first-party = ["copenhagen", "copenhagen_devkit", "spikes", "scripts"]
 
 # ---------------------------------------------------------------- pyright
 [tool.pyright]
-include = ["src", "tests", "spikes", "scripts"]
+include = ["src", "devkit", "tests", "spikes", "scripts"]
+extraPaths = ["devkit"]
 pythonVersion = "3.13"
 typeCheckingMode = "standard"
 strict = [
@@ -83,6 +84,7 @@ venv = ".venv"
 # ---------------------------------------------------------------- pytest
 [tool.pytest.ini_options]
 testpaths = ["tests", "spikes"]
+pythonpath = ["devkit"]
 python_files = ["test_*.py", "spike_*.py"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"

@@ -142,6 +142,7 @@ class World:
 
 class FakeAdapter:
     kind = "fake"
+    production_ready = False
 
     def __init__(self, world: World) -> None:
         self.world = world
@@ -163,3 +164,10 @@ class FakeAdapter:
 
     async def cancel(self, handle: str, cred: Credential) -> None:
         raise ValueError("use an explicit compensation capability")
+
+
+def create(ctx: object) -> FakeAdapter:
+    """Registry factory: ``COPENHAGEN_ADAPTERS=fake=copenhagen_devkit.fake:create``."""
+    import os
+
+    return FakeAdapter(World(os.environ.get("COPENHAGEN_FAKE_DB", ".data/fake.sqlite")))

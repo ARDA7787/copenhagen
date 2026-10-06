@@ -1,7 +1,7 @@
 """All adapter calls pass through the same schema and timeout boundary."""
 
 import asyncio
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from copenhagen.core.calls import CapabilityCall, Credential, InvokeResult, Preview
 from copenhagen.core.capability import ExecutorSpec
@@ -16,6 +16,15 @@ class Adapter(Protocol):
     async def invoke(self, call: CapabilityCall, cred: Credential) -> InvokeResult: ...
     async def poll(self, handle: str, cred: Credential) -> InvokeResult: ...
     async def cancel(self, handle: str, cred: Credential) -> None: ...
+
+
+@runtime_checkable
+class CallPoller(Protocol):
+    """Adapters whose job status needs the original call (for its executor config)."""
+
+    async def poll_call(
+        self, call: CapabilityCall, handle: str, cred: Credential
+    ) -> InvokeResult: ...
 
 
 async def invoke_checked(adapter: Adapter, call: CapabilityCall, cred: Credential) -> InvokeResult:

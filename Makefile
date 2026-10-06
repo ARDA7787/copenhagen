@@ -45,8 +45,8 @@ test-int: ## Integration tests against `make up` (Postgres, Temporal)
 e2e: ## End-to-end operational tests against local infrastructure
 	$(UV) run pytest -q -m e2e
 
-demo: ## Seed and run the guided demo (Milestone A)
-	$(UV) run copenhagen dev demo
+demo: ## Development kit: seed examples and run the guided demo
+	$(UV) run python -m copenhagen_devkit demo
 
 fmt: ## Auto-fix lint and format
 	$(UV) run ruff check --fix .
@@ -55,5 +55,5 @@ fmt: ## Auto-fix lint and format
 migrate: ## Apply database migrations (Phase 1+)
 	$(UV) run alembic upgrade head
 
-seed: ## Seed development personas, capabilities and business runbooks
-	$(UV) run copenhagen dev seed
+seed: ## Development kit: seed example personas, capabilities and recipes
+	$(UV) run python -m copenhagen_devkit seed

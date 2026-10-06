@@ -133,7 +133,6 @@ async def test_company_operation_survives_workers_restarting(tmp_path):
     domain = DomainActivities(
         "operations",
         env="test",
-        fake_path=str(tmp_path / "unused.sqlite"),
         backends={"company": f"http://127.0.0.1:{server.server_port}"},
     )
     api = create_app(settings, db=db, run_engine=TemporalEngine(client))
@@ -173,7 +172,6 @@ async def test_company_operation_survives_workers_restarting(tmp_path):
             fresh_domain = DomainActivities(
                 "operations",
                 env="test",
-                fake_path=str(tmp_path / "fresh.sqlite"),
                 backends={"company": f"http://127.0.0.1:{server.server_port}"},
             )
             async with (

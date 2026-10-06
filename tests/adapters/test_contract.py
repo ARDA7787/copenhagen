@@ -2,13 +2,13 @@ import httpx
 import pytest
 
 from copenhagen.adapters.base import invoke_checked
-from copenhagen.adapters.fake import FakeAdapter, World
 from copenhagen.adapters.http import HTTPAdapter, map_response
 from copenhagen.core.calls import CapabilityCall, Credential
 from copenhagen.core.canonical import idempotency_key, inputs_hash
 from copenhagen.db.store import transaction
 from copenhagen.registry.publish import capability
 from copenhagen.secrets.broker import CredentialBroker, authorization
+from copenhagen_devkit.fake import FakeAdapter, World
 
 
 def call(service):

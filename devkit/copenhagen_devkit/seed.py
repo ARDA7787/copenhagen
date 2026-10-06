@@ -15,7 +15,7 @@ from copenhagen.service import Service
 def seed(service: Service, root: Path | None = None) -> None:
     if service.settings.env == "prod":
         raise ValueError("demo seeding forbidden in production")
-    root = root or Path(__file__).resolve().parents[2]
+    root = root or Path(__file__).resolve().parents[2] / "examples"
     tenant = service.tenant
     with transaction(service.engine) as session:
         if session.get(Tenant, tenant) is None:

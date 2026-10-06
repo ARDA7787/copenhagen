@@ -4,9 +4,9 @@ import pytest
 
 from copenhagen.db.models import Base
 from copenhagen.db.store import connect
-from copenhagen.seed import seed
 from copenhagen.service import Service
 from copenhagen.settings import Settings
+from copenhagen_devkit.seed import seed
 
 
 @pytest.fixture
@@ -18,7 +18,6 @@ def service(tmp_path):
         env="test",
         database_url=str(db.url),
         copenhagen_dev_login=True,
-        copenhagen_dev_backends=True,
         hook_secret="test-only-hook-key",
     )
     result = Service(db, settings)

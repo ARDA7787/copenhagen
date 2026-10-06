@@ -31,7 +31,7 @@ class Spec(BaseModel, frozen=True, extra="forbid", populate_by_name=True):
 
 
 class ExecutorSpec(Spec, frozen=True):
-    adapter: Literal["fake", "http", "human"]
+    adapter: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     backend: str
     operation: str
     queue: str = Field(pattern=r"^[a-z][a-z0-9_-]*$")

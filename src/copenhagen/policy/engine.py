@@ -108,8 +108,6 @@ class PolicyEngine:
             )
 
         granted = any(fnmatchcase(cap.name, pattern) for pattern in principal.patterns)
-        if ctx.env == "prod" and cap.executor.adapter == "fake":
-            return decision("deny", "fake adapter is unavailable in production")
         if cap.risk.class_ == "infrastructure":
             return decision("deny", "infrastructure requires a saved-plan adapter (Phase 7)")
         if principal.status != "active" or cap.status != "active" or ctx.kill_switch:
