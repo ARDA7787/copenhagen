@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     hook_secret: str | None = None
     callback_secret: str | None = None
     run_timeout_hours: int = Field(default=72, ge=1, le=720)
+    notify_webhook_url: str | None = None
+    notify_webhook_secret: str | None = None
+    reconcile_minutes: int = Field(default=5, ge=1, le=1440)
 
     @model_validator(mode="after")
     def production_guards(self) -> Self:
@@ -45,6 +48,8 @@ class Settings(BaseSettings):
                 raise ValueError("production requires OIDC credentials and allowed domain")
             if not self.database_url.startswith("postgresql"):
                 raise ValueError("production requires PostgreSQL")
+            if self.notify_webhook_url and not self.notify_webhook_url.startswith("https://"):
+                raise ValueError("production notification webhook must use HTTPS")
             if "copenhagen_owner" in self.database_url:
                 raise ValueError("runtime must use the restricted app role")
         return self

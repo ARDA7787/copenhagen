@@ -74,3 +74,13 @@ class TemporalEngine:
         except RPCError as error:
             # NOT_FOUND here means the workflow already closed (completed, timed out).
             raise classify(error) from error
+
+    async def status(self, run_id: str) -> str | None:
+        """Temporal execution status name, or None when the workflow does not exist."""
+        try:
+            description = await self.client.get_workflow_handle(run_id).describe()
+        except RPCError as error:
+            if error.status == RPCStatusCode.NOT_FOUND:
+                return None
+            raise
+        return description.status.name if description.status else None

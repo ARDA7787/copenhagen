@@ -5,8 +5,10 @@ from __future__ import annotations
 import asyncio
 import os
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import Engine
+from sqlalchemy.orm import Session
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
@@ -20,6 +22,8 @@ from copenhagen.core.schema import validate_values
 from copenhagen.db.models import Approval, HumanTask, Plan, Run, StepRun, Tenant
 from copenhagen.db.store import get, put, rows, transaction
 from copenhagen.engine.contracts import ControlArgs, ControlResult
+from copenhagen.engine.dispatch import enqueue
+from copenhagen.notify import notification
 from copenhagen.policy.budgets import reserve, settle
 from copenhagen.policy.engine import PolicyEngine
 from copenhagen.policy.identity import principal
@@ -39,6 +43,28 @@ class ControlActivities:
         self.signing_key = os.environ.get("COPENHAGEN_AUTHORIZATION_KEY", "dev-control-key")
         if settings.env == "prod" and self.signing_key == "dev-control-key":
             raise ValueError("production requires a control authorization key")
+
+    def notify(
+        self, session: Session, args: ControlArgs, kind: str, id_: str, **fields: Any
+    ) -> None:
+        subject = fields.pop("subject")
+        enqueue(
+            session,
+            args.tenant_id,
+            f"notify:{id_}",
+            None,
+            "notify",
+            notification(
+                kind,
+                tenant=args.tenant_id,
+                subject=subject,
+                public_url=self.settings.public_url,
+                id=id_,
+                run_id=args.run_id,
+                step_id=args.step_id or None,
+                **fields,
+            ),
+        )
 
     @activity.defn(name="control")
     async def execute(self, args: ControlArgs) -> ControlResult:
@@ -251,6 +277,16 @@ class ControlActivities:
                         inputs_hash=h,
                         principal_id=requester.id,
                     )
+                    self.notify(
+                        session,
+                        args,
+                        "approval.requested",
+                        id_,
+                        subject=f"Approval needed: {cap.ref}",
+                        capability=cap.ref,
+                        role=cap.approval.approver_role,
+                        requester=requester.id,
+                    )
                 run.status = "waiting_approval"
                 return ControlResult(id=id_)
             if args.action == "approval_result":
@@ -283,6 +319,15 @@ class ControlActivities:
                         run_id=args.run_id,
                         step_id=args.step_id,
                     )
+                    self.notify(
+                        session,
+                        args,
+                        "task.created",
+                        id_,
+                        subject=f"Task assigned: {cap.ref}",
+                        capability=cap.ref,
+                        role=cap.approval.approver_role or f"approver:{cap.executor.queue}",
+                    )
                 run.status = "needs_attention"
                 return ControlResult(id=id_)
             if args.action == "task_result":
@@ -291,6 +336,16 @@ class ControlActivities:
             if args.action == "record":
                 event = args.data["event"]
                 h = args.data.get("inputs_hash")
+                if event == "step.needs_attention":
+                    self.notify(
+                        session,
+                        args,
+                        "run.needs_attention",
+                        args.data["event_id"],
+                        subject=f"Run needs attention at step {args.step_id}",
+                        reason=args.data.get("reason"),
+                        requester=requester.id,
+                    )
                 if event == "approval.expired":
                     for approval in rows(session, Approval, args.tenant_id):
                         if (

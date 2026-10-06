@@ -12,7 +12,7 @@ from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner, SandboxR
 
 from copenhagen.adapters.http import HTTPAdapter
 from copenhagen.audit.chain import check_invariants
-from copenhagen.db.models import Approval
+from copenhagen.db.models import Approval, Outbox
 from copenhagen.db.store import rows, transaction
 from copenhagen.engine.control import ControlActivities
 from copenhagen.engine.domain import DomainActivities
@@ -114,6 +114,12 @@ async def test_refund_unknown_outcome_verified_and_history_replays(
                 RunPlan.run, envelope, id=envelope.run_id, task_queue="control"
             )
             pending = await wait_pending(service, envelope.run_id)
+            with transaction(service.engine) as session:
+                note = session.get(Outbox, (service.tenant, f"notify:{pending.id}"))
+                assert note is not None
+                assert note.run_id is None
+                assert note.data["value"]["kind"] == "approval.requested"
+                assert "inputs" not in note.data["value"]
             transport = httpx.ASGITransport(app=world)
             async with httpx.AsyncClient(transport=transport, base_url="http://world") as http:
                 await http.post("/faults/refund/commit_then_drop")

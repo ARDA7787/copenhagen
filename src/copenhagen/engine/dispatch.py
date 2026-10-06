@@ -36,6 +36,7 @@ from copenhagen.db.models import Outbox, Run
 from copenhagen.db.store import lock, transaction
 from copenhagen.engine.client import PermanentDeliveryError, RunEngine
 from copenhagen.engine.contracts import RunEnvelope
+from copenhagen.notify import LogNotifier, Notifier
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,9 @@ def backoff(attempts: int) -> timedelta:
     return timedelta(seconds=base * random.uniform(0.8, 1.2))  # noqa: S311 - jitter only
 
 
-def enqueue(session: Session, tenant: str, id_: str, run_id: str, name: str, value: Any) -> None:
+def enqueue(
+    session: Session, tenant: str, id_: str, run_id: str | None, name: str, value: Any
+) -> None:
     if session.get(Outbox, (tenant, id_)) is None:
         session.add(
             Outbox(
@@ -96,8 +99,10 @@ class Dispatcher:
         *,
         max_attempts: int = 50,
         interval: float = 1.0,
+        notifier: Notifier | None = None,
     ) -> None:
         self.db, self.tenant, self.engine = db, tenant, engine
+        self.notifier = notifier or LogNotifier()
         self.max_attempts = max_attempts
         self.interval = interval
         self.mutex = asyncio.Lock()
@@ -183,7 +188,9 @@ class Dispatcher:
     async def deliver(self, claim: Claim) -> None:
         data = claim.data
         try:
-            if data["name"] == "start":
+            if data["name"] == "notify":
+                await self.notifier.send(data["value"])
+            elif data["name"] == "start":
                 await self.engine.start(RunEnvelope.model_validate(data["value"]))
             else:
                 await self.engine.signal(data["run_id"], data["name"], data["value"])

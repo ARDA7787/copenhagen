@@ -143,3 +143,27 @@ def test_signed_callback_bound_to_job_and_outputs(company):
             == 401
         )
         assert http.post(path, content=body + b" ", headers=headers).status_code == 401
+
+
+def test_admin_can_list_and_requeue_dead_messages(service):
+    from copenhagen.db.models import Outbox
+    from copenhagen.db.store import get, transaction
+    from copenhagen.engine.dispatch import enqueue
+
+    with transaction(service.engine) as session:
+        enqueue(session, service.tenant, "notify:x", None, "notify", {"kind": "task.created"})
+        get(session, Outbox, service.tenant, "notify:x").status = "dead"
+    admin_key = {"Authorization": "Bearer " + service.issue_key("admin", ["read", "admin"])}
+    with client(service) as http:
+        http.post("/auth/dev", data={"principal_id": "leela"})
+        assert http.get("/v1/admin/outbox").status_code == 403
+        http.cookies.clear()
+        dead = http.get("/v1/admin/outbox", headers=admin_key).json()
+        assert [m["id"] for m in dead] == ["notify:x"]
+        assert http.get("/v1/admin/outbox?status=delivered", headers=admin_key).status_code == 400
+        response = http.post("/v1/admin/outbox/notify:x/requeue", headers=admin_key)
+        assert response.status_code == 200, response.text
+        assert http.post("/v1/admin/outbox/nope/requeue", headers=admin_key).status_code == 404
+        assert http.get("/v1/admin/outbox", headers=admin_key).json() == []
+        # RecordingEngine has no status lookup, so reconciliation is unavailable.
+        assert http.post("/v1/admin/reconcile", headers=admin_key).status_code == 409
